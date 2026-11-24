@@ -323,9 +323,9 @@ export default function BillingPage() {
       invoice_number: invoiceNumber,
       invoice_date: dateStr,
       invoice_time: timeStr,
-      party_id: selectedPartyId,
-      party_name: selectedParty.name,
-      party_gstin: selectedParty.gstin,
+      party_id: selectedParty?.id || 'walk-in',
+      party_name: selectedParty?.name || 'Walk-in Retail Customer',
+      party_gstin: selectedParty?.gstin || '',
       doctor_name: doctorName,
       patient_name: patientName,
       items: lineItems,
@@ -452,13 +452,17 @@ export default function BillingPage() {
                 onChange={(e) => setSelectedPartyId(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 focus:outline-none focus:border-sky-500 font-medium shadow-2xs"
               >
-                {parties
-                  .filter((p) => p.party_type === 'CUSTOMER')
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} {p.gstin ? `(GST: ${p.gstin.slice(0, 8)}...)` : ''}
-                    </option>
-                  ))}
+                {parties.filter((p) => p.party_type === 'CUSTOMER').length === 0 ? (
+                  <option value="walk-in">Walk-in Retail Customer (Cash OTC)</option>
+                ) : (
+                  parties
+                    .filter((p) => p.party_type === 'CUSTOMER')
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.gstin ? `(GST: ${p.gstin.slice(0, 8)}...)` : ''}
+                      </option>
+                    ))
+                )}
               </select>
             </div>
 
@@ -927,7 +931,7 @@ export default function BillingPage() {
         <UpiQrModal
           amount={calculations.totalPayable}
           invoiceNumber={invoiceNumber}
-          customerName={selectedParty.name}
+          customerName={selectedParty?.name || 'Walk-in Customer'}
           onPaymentConfirmed={(upiRef) => {
             setShowUpiModal(false);
             finalizeInvoice(upiRef);

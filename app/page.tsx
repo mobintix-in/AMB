@@ -5,11 +5,10 @@ import Link from 'next/link';
 import { 
   Receipt, Boxes, ShoppingBag, AlertTriangle, Users, 
   BarChart3, Database, Sparkles, ArrowRight, ShieldCheck, 
-  TrendingUp, Pill, Zap, Clock, Printer, CheckCircle2 
+  TrendingUp, Pill, Zap, Clock, Printer, CheckCircle2, Building2 
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { useERPStore } from '@/lib/store';
-import { SupabaseModal } from '@/components/SupabaseModal';
 import { InvoicePrintModal } from '@/components/InvoicePrintModal';
 import { SalesInvoice } from '@/types/erp';
 
@@ -17,7 +16,6 @@ export default function HomePage() {
   const { tenant, invoices, items, batches, parties, currentUser, getStats, resetToDemoData } = useERPStore();
   const stats = getStats();
   const [mounted, setMounted] = useState(false);
-  const [showDbModal, setShowDbModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
 
   useEffect(() => {
@@ -88,43 +86,76 @@ export default function HomePage() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
         {/* Hero Banner */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-50 via-white to-slate-50 border border-slate-200 p-6 sm:p-8 shadow-sm">
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-100 border border-sky-200 text-sky-800 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-sky-600" />
-                <span>MARGERP Modernization Blueprint • Next.js & Supabase</span>
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>AMB MedERP Suite • Enterprise Pharmacy Edition</span>
+                </div>
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  POS Active
+                </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                {tenant.name}
-              </h1>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Cloud-native, local-first medical inventory management and high-speed billing engine. Reconstructed from legacy FoxPro 9 DBF architecture into Next.js 16, React 19, and Supabase PostgreSQL.
+
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>AMB</span>
+                  <span className="text-sky-600">MedERP</span>
+                  <span className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                    Hub
+                  </span>
+                </h1>
+                <div className="text-sm font-semibold text-slate-700 mt-1 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-sky-600 flex-shrink-0" />
+                  <span className="font-bold text-slate-900">{tenant.name || 'AMB Pharmaceuticals & Surgicals'}</span>
+                  {tenant.trade_name && tenant.trade_name !== tenant.name && (
+                    <span className="text-xs font-normal text-slate-500">• {tenant.trade_name}</span>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Enterprise pharmaceutical management, automated FEFO inventory control, CDSCO Schedule H/H1 regulatory compliance, and high-speed multi-counter billing engine.
               </p>
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pt-1">
-                <span>Branch: <strong className="text-slate-800">{tenant.branch_name}</strong></span>
-                <span>•</span>
-                <span>Drug License: <strong className="text-slate-800">{tenant.drug_license_no}</strong></span>
-                <span>•</span>
-                <span>GSTIN: <strong className="text-slate-800">{tenant.gstin}</strong></span>
-                {mounted && currentUser && (
-                  <>
-                    <span>•</span>
-                    <span className="text-emerald-700 font-semibold">
-                      Operator: {currentUser.name} ({currentUser.phone})
-                    </span>
-                  </>
-                )}
+
+              {/* Clean Structured Meta Chips (Prevents collision / wrapping overlap) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Branch</span>
+                  <span className="font-semibold text-slate-800 text-[11px] truncate block" title={tenant.branch_name}>
+                    {tenant.branch_name || 'Central Wholesale'}
+                  </span>
+                </div>
+                <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Drug License</span>
+                  <span className="font-mono font-semibold text-slate-800 text-[11px] truncate block" title={tenant.drug_license_no}>
+                    {tenant.drug_license_no || '20B/21B-MH-492102'}
+                  </span>
+                </div>
+                <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">GSTIN</span>
+                  <span className="font-mono font-semibold text-slate-800 text-[11px] truncate block" title={tenant.gstin}>
+                    {tenant.gstin || 'Unregistered'}
+                  </span>
+                </div>
+                <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Active Operator</span>
+                  <span className="font-semibold text-emerald-700 text-[11px] truncate block" title={mounted && currentUser ? `${currentUser.name} (${currentUser.phone})` : 'Guest Operator'}>
+                    {mounted && currentUser ? currentUser.name : 'Guest Operator'}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch md:items-center gap-3 flex-shrink-0">
-              <button
-                onClick={() => setShowDbModal(true)}
+            <div className="flex flex-col sm:flex-row lg:flex-col items-stretch gap-3 flex-shrink-0">
+              <Link
+                href="/inventory"
                 className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-2"
               >
-                <Database className="w-4 h-4 text-emerald-600" />
-                <span>Supabase Schema (DDL)</span>
-              </button>
+                <Boxes className="w-4 h-4 text-sky-600" />
+                <span>Medicine Master (F3)</span>
+              </Link>
 
               <Link
                 href="/billing"
@@ -239,36 +270,57 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Modern Architecture Evolution Card */}
+        {/* Enterprise Compliance & Operational Security Standards */}
         <div className="rounded-2xl bg-slate-50 border border-slate-200 p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 text-sky-700 text-xs font-bold uppercase tracking-wider">
-            <ShieldCheck className="w-4 h-4 text-sky-600" />
-            <span>Legacy MARGERP vs. Modern Next-Gen Reconstruction</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-900 text-xs font-bold uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Enterprise Regulatory Compliance & Cloud Security</span>
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 w-fit">
+              CDSCO & GST Compliant
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 rounded-xl bg-white border border-rose-200 shadow-2xs space-y-2">
-              <div className="font-bold text-rose-700 flex items-center gap-2">
-                <span>Traditional MARGERP (Visual FoxPro 9 / Win32)</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>CDSCO & Schedule H/H1</span>
               </div>
-              <ul className="space-y-1.5 text-slate-600">
-                <li>• Flat <code className="text-rose-700 font-mono bg-rose-50 px-1 py-0.5 rounded">.dbf</code> tables prone to corruption on sudden power loss or network dip.</li>
-                <li>• Rigid 800x600 Windows 98 dialogs, manual paper check reconciliations.</li>
-                <li>• Manual typing of 50+ lines from supplier paper bills (20-30 minutes per GRN).</li>
-                <li>• Physical USB dongles required; zero real-time multi-branch cloud sync.</li>
-              </ul>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                Mandatory prescriber doctor recording, patient verification, and tamper-proof audit trails for controlled substances.
+              </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-white border border-emerald-200 shadow-2xs space-y-2">
-              <div className="font-bold text-emerald-700 flex items-center gap-2">
-                <span>Reconstructed Next-Gen Architecture (Next.js + Supabase)</span>
+            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-sky-600" />
+                <span>GST E-Way Bill Ready</span>
               </div>
-              <ul className="space-y-1.5 text-slate-600">
-                <li>• PostgreSQL ACID compliance with automated stock deduction triggers.</li>
-                <li>• Local-First offline capability: continuous billing even with no internet.</li>
-                <li>• AI Purchase Document Ingestion (OCR vision parses vendor bills in 2s).</li>
-                <li>• Smart generic molecule substitute matcher & live profit margin feedback.</li>
-              </ul>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                Automated HSN 3004 tax calculation, state code splitting (CGST/SGST/IGST), and direct GSTR-1 sales register generation.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span>FEFO Expiry Lockout</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                First-Expiry-First-Out automated batch routing prevents dispensing near-expiry stock, protecting pharmacy capital.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-indigo-600" />
+                <span>Encrypted Cloud Sync</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                Multi-counter high-speed billing with local-first offline resilience and instant multi-branch ledger synchronization.
+              </p>
             </div>
           </div>
         </div>
@@ -336,9 +388,6 @@ export default function HomePage() {
           </div>
         </div>
       </main>
-
-      {/* Supabase Schema Modal */}
-      {showDbModal && <SupabaseModal onClose={() => setShowDbModal(false)} />}
 
       {/* Invoice Print Modal */}
       {selectedInvoice && (

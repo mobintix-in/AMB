@@ -14,15 +14,10 @@ import {
   Search, 
   Volume2, 
   VolumeX, 
-  Database,
-  RefreshCw,
-  LayoutDashboard,
-  Trash2
+  LayoutDashboard
 } from 'lucide-react';
 import { sounds } from '@/lib/audio';
-import { isSupabaseConfigured } from '@/lib/supabase';
 import { useERPStore } from '@/lib/store';
-import { SupabaseModal } from './SupabaseModal';
 import { CommandPalette } from './CommandPalette';
 
 interface NavbarProps {
@@ -31,10 +26,9 @@ interface NavbarProps {
 
 export function Navbar({ onResetData }: NavbarProps) {
   const pathname = usePathname();
-  const { currentUser, logout, clearAllData, resetToDemoData } = useERPStore();
+  const { currentUser, logout } = useERPStore();
   const [mounted, setMounted] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const [showDbModal, setShowDbModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   useEffect(() => {
@@ -61,80 +55,6 @@ export function Navbar({ onResetData }: NavbarProps) {
   return (
     <>
       <header className="bg-white text-slate-800 border-b border-slate-200 sticky top-0 z-40 select-none shadow-xs">
-        {/* Top Mini-Bar */}
-        <div className="border-b border-slate-100 bg-slate-50">
-          <div className="max-w-7xl mx-auto px-4 py-1.5 text-xs flex items-center justify-between text-slate-600">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 text-emerald-700 font-medium">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Branch 01: Central Wholesale</span>
-              </span>
-              <span className="text-slate-300 hidden sm:inline">•</span>
-              <span className="hidden sm:inline text-slate-500">DL: 20B/21B-MH-492102</span>
-              <span className="text-slate-300 hidden md:inline">•</span>
-              <span className="hidden md:inline text-slate-500 font-mono text-[11px]">GSTIN: 27AABCR8941N1Z5</span>
-              {mounted && currentUser && (
-                <>
-                  <span className="text-slate-300 hidden lg:inline">•</span>
-                  <span className="hidden lg:inline text-slate-500 font-mono text-[11px]">
-                    Operator: {currentUser.phone}
-                  </span>
-                </>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => setShowDbModal(true)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all border ${
-                  isSupabaseConfigured 
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100' 
-                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 shadow-2xs'
-                }`}
-                title="Supabase Database Configuration"
-              >
-                <Database className={`w-3 h-3 ${isSupabaseConfigured ? 'text-emerald-600' : 'text-amber-600'}`} />
-                <span>{isSupabaseConfigured ? 'Supabase Connected' : 'Local-First'}</span>
-              </button>
-
-              <button
-                onClick={toggleAudio}
-                className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors"
-                title={audioEnabled ? 'Mute Sound' : 'Enable Sound'}
-              >
-                {audioEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
-              </button>
-
-              <button
-                onClick={() => {
-                  if (confirm('Delete / Wipe all inventory, batches, parties and invoice records? This will give you a fresh empty database.')) {
-                    clearAllData();
-                  }
-                }}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                title="Wipe / Delete all records (Fresh start)"
-              >
-                <Trash2 className="w-3 h-3 text-rose-500" />
-                <span className="hidden md:inline">Delete All</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  if (confirm('Reset to initial pharma demo records?')) {
-                    if (onResetData) onResetData();
-                    else resetToDemoData();
-                  }
-                }}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-slate-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
-                title="Reset demo data"
-              >
-                <RefreshCw className="w-3 h-3" />
-                <span className="hidden md:inline">Reset Demo</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Main Navigation Row */}
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           {/* Brand Logo */}
@@ -149,7 +69,7 @@ export function Navbar({ onResetData }: NavbarProps) {
                   MedERP
                 </span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5 leading-none">Pharma Suite</div>
+              <div className="text-[10px] text-slate-500 mt-0.5 leading-none">Enterprise Edition</div>
             </div>
           </Link>
 
@@ -182,6 +102,14 @@ export function Navbar({ onResetData }: NavbarProps) {
 
           {/* Quick Search & Auth Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={toggleAudio}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              title={audioEnabled ? 'Mute Terminal Audio' : 'Enable Terminal Audio'}
+            >
+              {audioEnabled ? <Volume2 className="w-4 h-4 text-sky-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+            </button>
+
             <button
               onClick={() => setShowCommandPalette(true)}
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs text-slate-600 hover:text-slate-900 transition-all shadow-2xs"
@@ -267,9 +195,6 @@ export function Navbar({ onResetData }: NavbarProps) {
           })}
         </div>
       </header>
-
-      {/* Supabase DDL & Configuration Modal */}
-      {showDbModal && <SupabaseModal onClose={() => setShowDbModal(false)} />}
 
       {/* Ctrl + K Universal Command Palette */}
       {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}

@@ -51,7 +51,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     { title: 'Sales Analytics & GST Reports', category: 'Actions', shortcut: 'F6', href: '/reports', icon: BarChart3 },
     { title: 'Staff Login (Mobile & OTP)', category: 'Account', shortcut: 'Alt+L', href: '/login', icon: Users },
     { title: 'Register Pharmacy / Chemist Store', category: 'Account', shortcut: 'Alt+R', href: '/register', icon: Building2 },
-    { title: 'Supabase PostgreSQL Schema', category: 'Actions', shortcut: 'DB', href: '/#database', icon: Database },
+    { title: 'Pharmacy Profile & Drug License', category: 'Account', shortcut: 'Alt+P', href: '/', icon: Building2 },
   ];
 
   const matchedActions = quickActions.filter(a => a.title.toLowerCase().includes(q));

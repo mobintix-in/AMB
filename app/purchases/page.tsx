@@ -108,7 +108,8 @@ export default function PurchasesPage() {
     const totalTax = lines.reduce((acc, l) => acc + (l.quantity * l.purchase_rate * l.tax_rate) / 100, 0);
     const totalAmount = totalTaxable + totalTax;
 
-    addPurchaseBill(supplier.id, invoiceNo, lines);
+    const supplierIdFinal = supplier?.id || 'direct-supplier';
+    addPurchaseBill(supplierIdFinal, invoiceNo, lines);
 
     sounds.playSave();
     setSuccessBanner(true);

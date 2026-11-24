@@ -7,23 +7,24 @@ import {
   Building2, Phone, ShieldCheck, CheckCircle2, 
   ArrowRight, Sparkles, FileText, Lock, User, AlertCircle 
 } from 'lucide-react';
-import { Navbar } from '@/components/Navbar';
 import { useERPStore } from '@/lib/store';
 import { UserRole } from '@/types/erp';
 import { sounds } from '@/lib/audio';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { registerWithPhone, resetToDemoData } = useERPStore();
+  const { registerWithPhone } = useERPStore();
 
   const [mounted, setMounted] = useState(false);
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [storeName, setStoreName] = useState('');
   const [drugLicenseNo, setDrugLicenseNo] = useState('');
   const [gstin, setGstin] = useState('');
   const [role, setRole] = useState<UserRole>('ADMIN');
   const [pin, setPin] = useState('1234');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // OTP simulation for mobile number verification
   const [otpStep, setOtpStep] = useState(false);
@@ -69,7 +70,7 @@ export default function RegisterPage() {
     setOtpInput(demoCode.split(''));
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
 
@@ -86,29 +87,39 @@ export default function RegisterPage() {
       return;
     }
 
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
     try {
-      const res = registerWithPhone({
+      const res = await registerWithPhone({
         phone: cleanPhone,
         name: name.trim(),
+        email: email.trim(),
+        pin: pin.trim() || '1234',
         storeName: storeName.trim(),
         drugLicenseNo: drugLicenseNo.trim() || '20B-MH-NEW-REG',
         gstin: gstin.trim(),
         role,
       });
 
-      setSuccessMessage(`Store "${storeName}" successfully registered under AMB MedERP!`);
-      setTimeout(() => {
-        router.push('/billing');
-      }, 800);
+      if (res.success) {
+        setSuccessMessage(`Store "${storeName}" successfully registered & saved to Enterprise Cloud!`);
+        setTimeout(() => {
+          router.push('/billing');
+        }, 800);
+      } else {
+        setErrorMessage(res.error || 'Registration failed. Please try again.');
+      }
     } catch (err: unknown) {
-      setErrorMessage('Registration failed. Please try again.');
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(msg || 'Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans select-none">
-      <Navbar onResetData={resetToDemoData} />
-
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:py-12 flex flex-col items-center justify-center">
         <div className="w-full max-w-lg space-y-6">
           {/* Header */}
@@ -258,6 +269,20 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* Email (Optional) */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Store / Pharmacist Email (Optional — for cloud receipt alerts)
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. contact@apexpharmacy.in (or login via mobile)"
+                  className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-300 rounded-lg shadow-2xs focus:outline-none focus:border-sky-500"
+                />
+              </div>
+
               {/* Drug License & GST */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -308,15 +333,16 @@ export default function RegisterPage() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700 block">
-                    Quick Security PIN (4-Digit)
+                    Terminal Password / PIN (4+ Digits) *
                   </label>
                   <input
                     type="password"
-                    maxLength={4}
+                    required
+                    minLength={4}
                     value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
-                    placeholder="4-digit PIN for quick login"
-                    className="w-full px-3 py-2 text-xs text-slate-900 font-mono tracking-widest text-center bg-white border border-slate-300 rounded-lg shadow-2xs focus:outline-none focus:border-sky-500"
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="Password or 4-digit PIN for sign-in"
+                    className="w-full px-3 py-2 text-xs text-slate-900 font-mono bg-white border border-slate-300 rounded-lg shadow-2xs focus:outline-none focus:border-sky-500"
                   />
                 </div>
               </div>
@@ -324,10 +350,11 @@ export default function RegisterPage() {
               {/* Submit button */}
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 mt-2"
+                disabled={isSubmitting}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Register Store & Launch AMB MedERP</span>
+                <span>{isSubmitting ? 'Registering & Saving to Enterprise Cloud...' : 'Register Store & Launch AMB MedERP'}</span>
               </button>
             </form>
 
@@ -346,6 +373,11 @@ export default function RegisterPage() {
                 className="font-bold text-sky-700 hover:text-sky-800 inline-flex items-center gap-1 underline"
               >
                 <span>Sign in with Mobile Number →</span>
+              </Link>
+            </div>
+            <div>
+              <Link href="/" className="text-[11px] text-slate-400 hover:text-slate-600 inline-block mt-2">
+                ← Return to Dashboard
               </Link>
             </div>
           </div>

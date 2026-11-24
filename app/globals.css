@@ -49,8 +49,25 @@ input, select, textarea {
 
 /* Print Styles for thermal and A4 receipts */
 @media print {
-  body {
+  html, body {
     background-color: #ffffff !important;
     color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide navigation, background dashboard, buttons during print */
+  header, nav, .print\:hidden {
+    display: none !important;
+  }
+
+  /* Printable invoice area resets */
+  #print-invoice-area {
+    display: block !important;
+    visibility: visible !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
   }
 }
