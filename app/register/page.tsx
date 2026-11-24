@@ -23,7 +23,7 @@ export default function RegisterPage() {
   const [drugLicenseNo, setDrugLicenseNo] = useState('');
   const [gstin, setGstin] = useState('');
   const [role, setRole] = useState<UserRole>('ADMIN');
-  const [pin, setPin] = useState('1234');
+  const [pin, setPin] = useState('123456');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // OTP simulation for mobile number verification
@@ -84,6 +84,10 @@ export default function RegisterPage() {
     }
     if (!storeName.trim()) {
       setErrorMessage('Please enter Medical Store / Pharmacy Name');
+      return;
+    }
+    if (pin.trim().length < 6) {
+      setErrorMessage('Security PIN or Password must be at least 6 characters.');
       return;
     }
 
@@ -333,15 +337,15 @@ export default function RegisterPage() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700 block">
-                    Terminal Password / PIN (4+ Digits) *
+                    Terminal Password / Security PIN (6+ Digits) *
                   </label>
                   <input
                     type="password"
                     required
-                    minLength={4}
+                    minLength={6}
                     value={pin}
                     onChange={(e) => setPin(e.target.value)}
-                    placeholder="Password or 4-digit PIN for sign-in"
+                    placeholder="Enter password or 6-digit PIN (e.g. 123456)"
                     className="w-full px-3 py-2 text-xs text-slate-900 font-mono bg-white border border-slate-300 rounded-lg shadow-2xs focus:outline-none focus:border-sky-500"
                   />
                 </div>

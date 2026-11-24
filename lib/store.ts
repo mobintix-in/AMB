@@ -571,7 +571,7 @@ export function useERPStore() {
           name: data.name,
           phone: cleanPhone,
           email: data.email,
-          password: data.pin || '1234',
+          password: data.pin && data.pin.length >= 6 ? data.pin : (data.pin ? `amb_${data.pin}_pin` : '123456'),
           storeName: data.storeName,
           drugLicenseNo: data.drugLicenseNo,
           gstin: data.gstin,
