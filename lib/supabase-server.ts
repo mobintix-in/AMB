@@ -212,7 +212,11 @@ export async function fetchOperationalDataFromSupabase(): Promise<{
     const items = (iRes.data as Item[]) || [];
     const batches = (bRes.data as ItemBatch[]) || [];
     const parties = (pRes.data as Party[]) || [];
-    const invoices = (invRes.data as SalesInvoice[]) || [];
+    const rawInvoices = (invRes.data as any[]) || [];
+    const invoices: SalesInvoice[] = rawInvoices.map((inv) => ({
+      ...inv,
+      items: Array.isArray(inv.items) ? inv.items : [],
+    }));
 
     return {
       ok: true,
