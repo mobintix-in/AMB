@@ -45,6 +45,7 @@ async function runTests() {
     { path: '/expiry', name: 'Expiry Radar' },
     { path: '/parties', name: 'Accounts & Ledgers' },
     { path: '/reports', name: 'Financial & GST Reports' },
+    { path: '/subscription', name: 'Commercial Subscription & Plans' },
     { path: '/login', name: 'Terminal Login Page' },
     { path: '/register', name: 'Pharmacy Registration Page' },
   ];

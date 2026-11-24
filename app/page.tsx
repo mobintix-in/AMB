@@ -13,7 +13,7 @@ import { InvoicePrintModal } from '@/components/InvoicePrintModal';
 import { SalesInvoice } from '@/types/erp';
 
 export default function HomePage() {
-  const { tenant, invoices, items, batches, parties, currentUser, getStats, resetToDemoData } = useERPStore();
+  const { tenant, invoices, items, batches, parties, currentUser, subscription, getStats, resetToDemoData } = useERPStore();
   const stats = getStats();
   const [mounted, setMounted] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
@@ -92,9 +92,13 @@ export default function HomePage() {
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                   Dashboard Overview
                 </h1>
-                <span className="text-[10px] uppercase font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Live POS
-                </span>
+                <Link
+                  href="/subscription"
+                  className="text-[10px] uppercase font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
+                  title="Commercial Software License Active - Click to Manage"
+                >
+                  {subscription?.tier || 'ENTERPRISE'} • Active
+                </Link>
               </div>
               <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-slate-800">{tenant.name || 'AMB Pharmaceuticals & Surgicals'}</span>

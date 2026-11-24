@@ -231,6 +231,17 @@ export async function fetchOperationalDataFromSupabase(): Promise<{
 
 // ─── User Authentication via Supabase Admin ───────────────────────────────────
 
+export function normalizeAuthPassword(pwd?: string): string {
+  const trimmed = pwd?.trim() || '';
+  if (!trimmed) return 'amb_1234_pin';
+  if (trimmed.length < 6) {
+    // Supabase Auth requires minimum 6 characters. If user provides a 4- or 5-digit PIN,
+    // pad it deterministically so Supabase accepts it without throwing 'Password should be at least 6 characters'.
+    return `amb_${trimmed}_pin`;
+  }
+  return trimmed;
+}
+
 export async function adminRegisterUser(data: {
   name: string;
   phone: string;
@@ -252,7 +263,7 @@ export async function adminRegisterUser(data: {
   }
 
   const email = data.email?.trim() || `${cleanPhone}@amb-med.in`;
-  const password = data.password?.trim() || '1234';
+  const password = normalizeAuthPassword(data.password);
 
   const metadata = {
     name: data.name.trim(),
@@ -394,12 +405,25 @@ export async function adminLoginUser(
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
     if (anonUrl && anonKey && matchedUser.email && userPassword) {
       const anonClient = createClient(anonUrl, anonKey);
-      const { error: signErr } = await anonClient.auth.signInWithPassword({
-        email: matchedUser.email,
-        password: userPassword,
-      });
+      
+      const candidatePasswords = [
+        userPassword,
+        normalizeAuthPassword(userPassword),
+      ].filter((p, idx, arr) => arr.indexOf(p) === idx && p.length >= 6);
 
-      if (signErr) {
+      let signedIn = false;
+      for (const p of candidatePasswords) {
+        const { error: signErr } = await anonClient.auth.signInWithPassword({
+          email: matchedUser.email,
+          password: p,
+        });
+        if (!signErr) {
+          signedIn = true;
+          break;
+        }
+      }
+
+      if (!signedIn) {
         // If password failed
         return {
           success: false,

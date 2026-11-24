@@ -173,6 +173,18 @@ export interface SubstituteMedicine {
 
 export type UserRole = 'ADMIN' | 'PHARMACIST' | 'CASHIER';
 
+export type SubscriptionTier = 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+
+export interface SubscriptionInfo {
+  tier: SubscriptionTier;
+  planName: string;
+  priceMonthly: number;
+  status: 'ACTIVE' | 'TRIAL' | 'EXPIRED';
+  validUntil: string;
+  licenseKey: string;
+  isPaid: boolean;
+}
+
 export interface UserProfile {
   id: string;
   phone: string;

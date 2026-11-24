@@ -103,10 +103,10 @@ export default function RegisterPage() {
       });
 
       if (res.success) {
-        setSuccessMessage(`Store "${storeName}" successfully registered & saved to Enterprise Cloud!`);
+        setSuccessMessage(`Store "${storeName}" successfully registered! Activating commercial license...`);
         setTimeout(() => {
-          router.push('/billing');
-        }, 800);
+          router.push('/subscription');
+        }, 600);
       } else {
         setErrorMessage(res.error || 'Registration failed. Please try again.');
       }

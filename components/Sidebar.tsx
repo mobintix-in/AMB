@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { 
   Building2, 
@@ -18,7 +18,8 @@ import {
   Plus,
   LogOut,
   Menu,
-  X
+  X,
+  CreditCard
 } from 'lucide-react';
 import { sounds } from '@/lib/audio';
 import { useERPStore } from '@/lib/store';
@@ -29,8 +30,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onResetData }: SidebarProps) {
+  const router = useRouter();
   const pathname = usePathname();
-  const { currentUser, logout } = useERPStore();
+  const { currentUser, isLoaded, subscription, logout } = useERPStore();
   const [mounted, setMounted] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -39,6 +41,13 @@ export function Sidebar({ onResetData }: SidebarProps) {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Commercial App Auth Guard: Force login when anyone accesses the application
+  useEffect(() => {
+    if (mounted && isLoaded && !currentUser) {
+      router.replace('/login');
+    }
+  }, [mounted, isLoaded, currentUser, router]);
 
   const toggleAudio = () => {
     const nextState = !audioEnabled;
@@ -55,6 +64,7 @@ export function Sidebar({ onResetData }: SidebarProps) {
     { href: '/expiry', label: 'Expiry Radar', icon: AlertTriangle, badge: 'Alert' },
     { href: '/parties', label: 'Accounts & Ledgers', icon: Users },
     { href: '/reports', label: 'Reports & GST', icon: BarChart3 },
+    { href: '/subscription', label: 'Subscription & License', icon: CreditCard, badge: 'PRO' },
   ];
 
   return (
@@ -223,8 +233,17 @@ export function Sidebar({ onResetData }: SidebarProps) {
                     <div className="text-xs font-bold text-slate-900 truncate">
                       {currentUser.name}
                     </div>
-                    <div className="text-[10px] text-slate-500 truncate font-mono">
-                      {currentUser.phone || currentUser.email || 'Pharmacist'}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] text-slate-500 truncate font-mono">
+                        {currentUser.phone || currentUser.email || 'Pharmacist'}
+                      </span>
+                      <Link 
+                        href="/subscription" 
+                        className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 uppercase font-mono tracking-wide"
+                        title="Commercial License Active - Click to Manage"
+                      >
+                        {subscription?.tier || 'ACTIVE'}
+                      </Link>
                     </div>
                   </div>
                 </div>

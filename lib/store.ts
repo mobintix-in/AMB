@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   Tenant, Party, Item, ItemBatch, SalesInvoice, 
-  SalesInvoiceItem, SubstituteMedicine, UserProfile, UserRole 
+  SalesInvoiceItem, SubstituteMedicine, UserProfile, UserRole,
+  SubscriptionInfo, SubscriptionTier
 } from '@/types/erp';
 import { 
   initialTenant, initialParties, initialItems, 
@@ -27,6 +28,17 @@ const STORAGE_KEYS = {
   INVOICES: 'amb_erp_invoices',
   USERS: 'amb_erp_users',
   CURRENT_USER: 'amb_erp_current_user',
+  SUBSCRIPTION: 'amb_erp_subscription',
+};
+
+export const defaultSubscription: SubscriptionInfo = {
+  tier: 'ENTERPRISE',
+  planName: 'Enterprise Cloud License',
+  priceMonthly: 3499,
+  status: 'ACTIVE',
+  validUntil: '2027-12-31',
+  licenseKey: 'AMB-ENT-8849-MH-2026',
+  isPaid: true,
 };
 
 // Safe localStorage helper
@@ -57,6 +69,7 @@ export function useERPStore() {
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [subscription, setSubscriptionState] = useState<SubscriptionInfo>(defaultSubscription);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -73,6 +86,7 @@ export function useERPStore() {
     }));
     const storedUsers = getStored(STORAGE_KEYS.USERS, []);
     const storedCurrentUser = getStored<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, null);
+    const storedSubscription = getStored<SubscriptionInfo>(STORAGE_KEYS.SUBSCRIPTION, defaultSubscription);
 
     setTenant(storedTenant);
     setParties(storedParties);
@@ -80,6 +94,7 @@ export function useERPStore() {
     setBatches(storedBatches);
     setInvoices(normalizedStoredInvoices);
     setUsers(storedUsers);
+    setSubscriptionState(storedSubscription);
 
     if (storedCurrentUser && storedCurrentUser.phone === '9820144552' && storedCurrentUser.name === 'Rajesh Sharma') {
       setCurrentUser(null);
@@ -731,6 +746,28 @@ export function useERPStore() {
     sounds.playSave();
   };
 
+  const activateSubscription = useCallback((tier: SubscriptionTier, licenseKey?: string) => {
+    const plans: Record<SubscriptionTier, { name: string; price: number }> = {
+      STARTER: { name: 'Starter Retail License', price: 999 },
+      PROFESSIONAL: { name: 'Professional Pharmacy Suite', price: 1999 },
+      ENTERPRISE: { name: 'Enterprise Cloud Chain Edition', price: 3499 },
+    };
+    const chosen = plans[tier] || plans.PROFESSIONAL;
+    const newSub: SubscriptionInfo = {
+      tier,
+      planName: chosen.name,
+      priceMonthly: chosen.price,
+      status: 'ACTIVE',
+      validUntil: '2027-12-31',
+      licenseKey: licenseKey || `AMB-${tier.slice(0, 3)}-${Math.floor(1000 + Math.random() * 9000)}-MH`,
+      isPaid: true,
+    };
+    setSubscriptionState(newSub);
+    setStored(STORAGE_KEYS.SUBSCRIPTION, newSub);
+    sounds.playSave();
+    return newSub;
+  }, []);
+
   return {
     tenant,
     parties,
@@ -739,6 +776,7 @@ export function useERPStore() {
     invoices,
     users,
     currentUser,
+    subscription,
     isLoaded,
     isSyncing,
     searchItems,
@@ -764,5 +802,7 @@ export function useERPStore() {
     syncWithSupabase,
     pushToSupabase,
     setTenant: persistTenant,
+    setSubscription: setSubscriptionState,
+    activateSubscription,
   };
 }

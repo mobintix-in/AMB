@@ -51,10 +51,10 @@ export default function LoginPage() {
     try {
       const res = await loginWithSupabase(identifier.trim(), password.trim());
       if (res.success && res.user) {
-        setSuccessMessage(`Welcome back, ${res.user.name}! Redirecting to AMB MedERP POS...`);
+        setSuccessMessage(`Welcome back, ${res.user.name}! Verifying commercial subscription...`);
         setTimeout(() => {
-          router.push('/billing');
-        }, 600);
+          router.push('/subscription');
+        }, 500);
       } else {
         setErrorMessage(res.error || 'Invalid credentials or user not found. Please verify and retry.');
       }
