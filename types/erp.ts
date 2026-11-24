@@ -176,6 +176,7 @@ export type UserRole = 'ADMIN' | 'PHARMACIST' | 'CASHIER';
 export interface UserProfile {
   id: string;
   phone: string;
+  email?: string;
   name: string;
   role: UserRole;
   store_name: string;

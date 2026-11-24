@@ -67,6 +67,10 @@ export function useERPStore() {
     const storedItems = getStored(STORAGE_KEYS.ITEMS, initialItems);
     const storedBatches = getStored(STORAGE_KEYS.BATCHES, initialBatches);
     const storedInvoices = getStored(STORAGE_KEYS.INVOICES, initialSalesInvoices);
+    const normalizedStoredInvoices = (storedInvoices || []).map((inv: any) => ({
+      ...inv,
+      items: Array.isArray(inv.items) ? inv.items : [],
+    }));
     const storedUsers = getStored(STORAGE_KEYS.USERS, []);
     const storedCurrentUser = getStored<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, null);
 
@@ -74,7 +78,7 @@ export function useERPStore() {
     setParties(storedParties);
     setItems(storedItems);
     setBatches(storedBatches);
-    setInvoices(storedInvoices);
+    setInvoices(normalizedStoredInvoices);
     setUsers(storedUsers);
 
     if (storedCurrentUser && storedCurrentUser.phone === '9820144552' && storedCurrentUser.name === 'Rajesh Sharma') {
@@ -190,8 +194,12 @@ export function useERPStore() {
           setStored(STORAGE_KEYS.PARTIES, json.data.parties);
         }
         if (json.data.invoices && json.data.invoices.length > 0) {
-          setInvoices(json.data.invoices);
-          setStored(STORAGE_KEYS.INVOICES, json.data.invoices);
+          const normalizedInvoices = json.data.invoices.map((inv: any) => ({
+            ...inv,
+            items: Array.isArray(inv.items) ? inv.items : [],
+          }));
+          setInvoices(normalizedInvoices);
+          setStored(STORAGE_KEYS.INVOICES, normalizedInvoices);
         }
         if (json.data.tenant) {
           setTenant(json.data.tenant);

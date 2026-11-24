@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchOperationalDataFromSupabase } from '@/lib/supabase-server';
 
-export async function GET() {
+async function handleSync() {
   try {
     const result = await fetchOperationalDataFromSupabase();
 
@@ -14,4 +14,12 @@ export async function GET() {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return handleSync();
+}
+
+export async function POST() {
+  return handleSync();
 }

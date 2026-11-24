@@ -7,7 +7,7 @@ import {
   TrendingUp, ShieldAlert, CreditCard, Banknote, UserCheck, 
   FileText, ShoppingBag, Pill
 } from 'lucide-react';
-import { Navbar } from '@/components/Navbar';
+import { Sidebar } from '@/components/Sidebar';
 import { useERPStore } from '@/lib/store';
 import { sounds } from '@/lib/audio';
 import { 
@@ -354,10 +354,11 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans select-none">
-      <Navbar onResetData={resetToDemoData} />
+    <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col md:flex-row font-sans select-none">
+      <Sidebar onResetData={resetToDemoData} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 space-y-3">
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 space-y-3">
         {/* Unified Invoice & POS Header Panel */}
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm space-y-3">
           {/* Top row: Invoice No, Date, Hotkey Actions, and Payment Mode */}
@@ -906,7 +907,8 @@ export default function BillingPage() {
             </div>
           </div>
         </div>
-      </main>
+        </main>
+      </div>
 
       {/* Smart Substitute Finder Modal */}
       {substituteItem && (

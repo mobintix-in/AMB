@@ -5,7 +5,7 @@ import {
   BarChart3, FileText, Download, Printer, TrendingUp, 
   DollarSign, CheckCircle2, ShieldAlert, ArrowUpRight, Trash2 
 } from 'lucide-react';
-import { Navbar } from '@/components/Navbar';
+import { Sidebar } from '@/components/Sidebar';
 import { useERPStore } from '@/lib/store';
 import { SalesInvoice } from '@/types/erp';
 import { InvoicePrintModal } from '@/components/InvoicePrintModal';
@@ -27,11 +27,11 @@ export default function ReportsPage() {
 
   // Fast moving products
   const productSalesMap = new Map<string, { name: string; qty: number; revenue: number }>();
-  invoices.forEach((inv) => {
-    inv.items.forEach((item) => {
+  (invoices || []).forEach((inv) => {
+    (inv.items || []).forEach((item) => {
       const existing = productSalesMap.get(item.item_id) || { name: item.item_name, qty: 0, revenue: 0 };
-      existing.qty += item.quantity + (item.free_quantity || 0);
-      existing.revenue += item.total_amount;
+      existing.qty += (item.quantity || 0) + (item.free_quantity || 0);
+      existing.revenue += item.total_amount || 0;
       productSalesMap.set(item.item_id, existing);
     });
   });
@@ -41,10 +41,11 @@ export default function ReportsPage() {
     .slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans select-none">
-      <Navbar onResetData={resetToDemoData} />
+    <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col md:flex-row font-sans select-none">
+      <Sidebar onResetData={resetToDemoData} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 space-y-4">
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 space-y-4">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
           <div>
@@ -195,7 +196,7 @@ export default function ReportsPage() {
                     <td className="py-2.5 px-3 font-bold text-sky-700">{inv.invoice_number}</td>
                     <td className="py-2.5 px-3 text-slate-500">{inv.invoice_date} {inv.invoice_time}</td>
                     <td className="py-2.5 px-3 font-sans font-medium text-slate-900">{inv.party_name}</td>
-                    <td className="py-2.5 px-3 text-center text-slate-700">{inv.items.length}</td>
+                    <td className="py-2.5 px-3 text-center text-slate-700">{(inv.items || []).length}</td>
                     <td className="py-2.5 px-3 text-right text-slate-700">₹{inv.taxable_amount.toFixed(2)}</td>
                     <td className="py-2.5 px-3 text-right text-slate-600">
                       ₹{(inv.cgst_amount + inv.sgst_amount).toFixed(2)}
@@ -240,7 +241,8 @@ export default function ReportsPage() {
             </table>
           </div>
         </div>
-      </main>
+        </main>
+      </div>
 
       {/* Invoice Print Modal */}
       {selectedInvoice && (

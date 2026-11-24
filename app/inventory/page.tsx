@@ -5,7 +5,7 @@ import {
   Plus, Search, Filter, Boxes, AlertTriangle, ShieldCheck, 
   Pill, Sparkles, Eye, ArrowUpDown, ChevronDown, Trash2 
 } from 'lucide-react';
-import { Navbar } from '@/components/Navbar';
+import { Sidebar } from '@/components/Sidebar';
 import { useERPStore } from '@/lib/store';
 import { Item, ItemBatch } from '@/types/erp';
 import { SubstituteFinderModal } from '@/components/SubstituteFinderModal';
@@ -179,10 +179,11 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans select-none">
-      <Navbar onResetData={resetToDemoData} />
+    <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col md:flex-row font-sans select-none">
+      <Sidebar onResetData={resetToDemoData} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 space-y-4">
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 space-y-4">
         {/* Header Action Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
           <div>
@@ -448,7 +449,8 @@ export default function InventoryPage() {
             ))
           )}
         </div>
-      </main>
+        </main>
+      </div>
 
       {/* Add New Medicine Modal */}
       {showAddItemModal && (

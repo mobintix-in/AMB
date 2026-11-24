@@ -7,7 +7,7 @@ import {
   BarChart3, Database, Sparkles, ArrowRight, ShieldCheck, 
   TrendingUp, Pill, Zap, Clock, Printer, CheckCircle2, Building2 
 } from 'lucide-react';
-import { Navbar } from '@/components/Navbar';
+import { Sidebar } from '@/components/Sidebar';
 import { useERPStore } from '@/lib/store';
 import { InvoicePrintModal } from '@/components/InvoicePrintModal';
 import { SalesInvoice } from '@/types/erp';
@@ -80,93 +80,50 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans select-none">
-      <Navbar onResetData={resetToDemoData} />
+    <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col md:flex-row font-sans">
+      <Sidebar onResetData={resetToDemoData} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        {/* Hero Banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-50 via-white to-slate-50 border border-slate-200 p-6 sm:p-8 shadow-sm">
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-3 max-w-2xl">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>AMB MedERP Suite • Enterprise Pharmacy Edition</span>
-                </div>
-                <span className="text-xs px-2.5 py-0.5 rounded-full font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  POS Active
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+          {/* Header Bar (Clean Commercial SaaS Header matching InvoicePro) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Dashboard Overview
+                </h1>
+                <span className="text-[10px] uppercase font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Live POS
                 </span>
               </div>
-
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <span>AMB</span>
-                  <span className="text-sky-600">MedERP</span>
-                  <span className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                    Hub
-                  </span>
-                </h1>
-                <div className="text-sm font-semibold text-slate-700 mt-1 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-sky-600 flex-shrink-0" />
-                  <span className="font-bold text-slate-900">{tenant.name || 'AMB Pharmaceuticals & Surgicals'}</span>
-                  {tenant.trade_name && tenant.trade_name !== tenant.name && (
-                    <span className="text-xs font-normal text-slate-500">• {tenant.trade_name}</span>
-                  )}
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Enterprise pharmaceutical management, automated FEFO inventory control, CDSCO Schedule H/H1 regulatory compliance, and high-speed multi-counter billing engine.
-              </p>
-
-              {/* Clean Structured Meta Chips (Prevents collision / wrapping overlap) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
-                <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Branch</span>
-                  <span className="font-semibold text-slate-800 text-[11px] truncate block" title={tenant.branch_name}>
-                    {tenant.branch_name || 'Central Wholesale'}
-                  </span>
-                </div>
-                <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Drug License</span>
-                  <span className="font-mono font-semibold text-slate-800 text-[11px] truncate block" title={tenant.drug_license_no}>
-                    {tenant.drug_license_no || '20B/21B-MH-492102'}
-                  </span>
-                </div>
-                <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">GSTIN</span>
-                  <span className="font-mono font-semibold text-slate-800 text-[11px] truncate block" title={tenant.gstin}>
-                    {tenant.gstin || 'Unregistered'}
-                  </span>
-                </div>
-                <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Active Operator</span>
-                  <span className="font-semibold text-emerald-700 text-[11px] truncate block" title={mounted && currentUser ? `${currentUser.name} (${currentUser.phone})` : 'Guest Operator'}>
-                    {mounted && currentUser ? currentUser.name : 'Guest Operator'}
-                  </span>
-                </div>
+              <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-slate-800">{tenant.name || 'AMB Pharmaceuticals & Surgicals'}</span>
+                <span className="text-slate-300">•</span>
+                <span>Branch: {tenant.branch_name || 'Central Wholesale'}</span>
+                <span className="text-slate-300">•</span>
+                <span className="font-mono">DL: {tenant.drug_license_no || '20B/21B-MH-492102'}</span>
+                <span className="text-slate-300">•</span>
+                <span className="font-mono">GSTIN: {tenant.gstin || 'Unregistered'}</span>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row lg:flex-col items-stretch gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2.5">
               <Link
                 href="/inventory"
-                className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-2"
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs transition-all flex items-center gap-2"
               >
-                <Boxes className="w-4 h-4 text-sky-600" />
+                <Boxes className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Medicine Master (F3)</span>
               </Link>
-
               <Link
                 href="/billing"
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-2"
               >
                 <Receipt className="w-4 h-4" />
                 <span>Launch Billing POS (F1)</span>
               </Link>
             </div>
           </div>
-        </div>
 
         {/* Real-time KPI Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -387,7 +344,8 @@ export default function HomePage() {
             </table>
           </div>
         </div>
-      </main>
+        </main>
+      </div>
 
       {/* Invoice Print Modal */}
       {selectedInvoice && (

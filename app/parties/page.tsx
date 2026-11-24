@@ -5,7 +5,7 @@ import {
   Users, Plus, Search, Phone, Mail, Building, 
   CreditCard, CheckCircle2, FileText, ArrowUpRight, ArrowDownLeft, Trash2 
 } from 'lucide-react';
-import { Navbar } from '@/components/Navbar';
+import { Sidebar } from '@/components/Sidebar';
 import { useERPStore } from '@/lib/store';
 import { Party, PartyType } from '@/types/erp';
 import { sounds } from '@/lib/audio';
@@ -71,10 +71,11 @@ export default function PartiesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans select-none">
-      <Navbar onResetData={resetToDemoData} />
+    <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col md:flex-row font-sans select-none">
+      <Sidebar onResetData={resetToDemoData} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 space-y-4">
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 space-y-4">
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
           <div>
@@ -209,7 +210,8 @@ export default function PartiesPage() {
             );
           })}
         </div>
-      </main>
+        </main>
+      </div>
 
       {/* Add Party Modal */}
       {showAddModal && (

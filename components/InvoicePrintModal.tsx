@@ -275,7 +275,7 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-[11px]">
-                    {invoice.items.map((it, idx) => (
+                    {(invoice.items || []).map((it, idx) => (
                       <tr key={it.id || idx} className="text-slate-800">
                         <td className="py-2 px-1.5 text-center text-slate-500 font-mono">{idx + 1}</td>
                         <td className="py-2 px-2">
@@ -456,7 +456,7 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
                   <span>ITEM / BATCH / EXP</span>
                   <span>QTY x RATE = AMT</span>
                 </div>
-                {invoice.items.map((item, idx) => (
+                {(invoice.items || []).map((item, idx) => (
                   <div key={item.id || idx} className="mb-2">
                     <div className="font-bold text-slate-900">{item.item_name}</div>
                     <div className="flex justify-between text-[9px] text-slate-500">
