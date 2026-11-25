@@ -792,7 +792,11 @@ export async function fetchOperationalDataFromSupabase(params?: {
 
     const allTenants = (tenantsRes.data as Tenant[]) || [];
     let tenant: Tenant | null = null;
-    if (params?.tenantId) {
+    if (matchedAuthUser) {
+      const expectedTenantId = toUuid(`tenant-${matchedAuthUser.id}`);
+      tenant = allTenants.find((t) => t.id === expectedTenantId) || null;
+    }
+    if (!tenant && params?.tenantId) {
       const targetUuid = toUuid(params.tenantId);
       tenant = allTenants.find((t) => t.id === targetUuid || t.id === params.tenantId) || null;
     }
@@ -802,8 +806,21 @@ export async function fetchOperationalDataFromSupabase(params?: {
     if (!tenant && userProfile?.phone) {
       tenant = allTenants.find((t) => t.phone?.slice(-10) === userProfile!.phone.slice(-10)) || null;
     }
-    if (!tenant && allTenants.length > 0) {
-      tenant = allTenants[0];
+    if (!tenant && matchedAuthUser) {
+      tenant = {
+        id: toUuid(`tenant-${matchedAuthUser.id}`),
+        name: userProfile?.store_name || 'AMB MedERP Store',
+        trade_name: userProfile?.store_name || 'AMB MedERP Store',
+        branch_name: 'Main Pharmacy Branch',
+        gstin: userProfile?.gstin || '',
+        drug_license_no: userProfile?.drug_license_no || '',
+        phone: userProfile?.phone || '',
+        email: matchedAuthUser.email?.endsWith('@amb-med.in') ? '' : matchedAuthUser.email || '',
+        address: '',
+        state: 'Maharashtra',
+        state_code: '27',
+        currency: 'INR',
+      };
     }
 
     tenant = mergeTenantProfile(tenant, matchedAuthUser?.user_metadata);
@@ -876,8 +893,15 @@ export async function adminRegisterUser(data: {
   if (cleanPhone.length < 10) {
     return { success: false, error: 'Please provide a valid 10-digit mobile number.' };
   }
+  if (!data.name?.trim() || !data.storeName?.trim()) {
+    return { success: false, error: 'Pharmacist name and medical store name are required.' };
+  }
+  if (!data.drugLicenseNo?.trim()) {
+    return { success: false, error: 'Drug License No. (D.L. 20B/21B) is mandatory.' };
+  }
 
-  const email = (data.email?.trim() || `${cleanPhone}@amb-med.in`).toLowerCase();
+  const providedEmail = data.email?.trim().toLowerCase() || '';
+  const email = providedEmail || `${cleanPhone}@amb-med.in`;
   const password = normalizeAuthPassword(data.password);
 
   const metadata = {
@@ -885,7 +909,7 @@ export async function adminRegisterUser(data: {
     phone: cleanPhone,
     store_name: data.storeName.trim(),
     drug_license_no: data.drugLicenseNo.trim(),
-    gstin: data.gstin?.trim() || '',
+    gstin: data.gstin?.trim().toUpperCase() || '',
     role: data.role || 'ADMIN',
     status: 'No plan',
     plan: null,
@@ -929,14 +953,14 @@ export async function adminRegisterUser(data: {
       gstin: data.gstin?.trim().toUpperCase() || '',
       drug_license_no: data.drugLicenseNo.trim(),
       phone: cleanPhone,
-      email,
-      address: 'Central Health Avenue, Maharashtra',
+      email: providedEmail,
+      address: '',
       state: 'Maharashtra',
       state_code: '27',
       currency: 'INR',
     };
 
-    await client.from('tenants').upsert({
+    const { error: tErr } = await client.from('tenants').upsert({
       id: tenantId,
       name: newTenant.name,
       trade_name: newTenant.trade_name,
@@ -945,15 +969,18 @@ export async function adminRegisterUser(data: {
       drug_license_no: newTenant.drug_license_no,
       phone: newTenant.phone,
       email: newTenant.email || null,
-      address: newTenant.address,
+      address: newTenant.address || null,
       state: newTenant.state,
       state_code: newTenant.state_code,
       currency: newTenant.currency,
     });
+    if (tErr) {
+      console.warn('Tenant row upsert warning during registration:', tErr.message);
+    }
 
     const profile: UserProfile = {
       id: authUser.id,
-      email,
+      email: providedEmail || undefined,
       phone: cleanPhone,
       name: data.name.trim(),
       role: data.role || 'ADMIN',
@@ -1062,13 +1089,27 @@ export async function adminLoginUser(
     const subscription = mapUserMetadataToSubscription(meta, packages);
 
     // 4. Fetch associated tenant for this user
+    const expectedTenantId = toUuid(`tenant-${matchedUser.id}`);
     const { data: tenants } = await client.from('tenants').select('*');
     const tenantList = (tenants as Tenant[]) || [];
     const matchedTenant =
+      tenantList.find((t) => t.id === expectedTenantId) ||
       tenantList.find((t) => matchedUser.email && t.email?.toLowerCase() === matchedUser.email.toLowerCase()) ||
       tenantList.find((t) => profile.phone && t.phone?.slice(-10) === profile.phone.slice(-10)) ||
-      tenantList[0] ||
-      null;
+      {
+        id: expectedTenantId,
+        name: profile.store_name || 'AMB MedERP Store',
+        trade_name: profile.store_name || 'AMB MedERP Store',
+        branch_name: 'Main Pharmacy Branch',
+        gstin: profile.gstin || '',
+        drug_license_no: profile.drug_license_no || '',
+        phone: profile.phone || '',
+        email: matchedUser.email?.endsWith('@amb-med.in') ? '' : matchedUser.email || '',
+        address: '',
+        state: 'Maharashtra',
+        state_code: '27',
+        currency: 'INR',
+      };
     const tenant = mergeTenantProfile(matchedTenant, meta) || undefined;
 
     return { success: true, user: profile, tenant, subscription };

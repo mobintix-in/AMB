@@ -834,7 +834,7 @@ export function useERPStore() {
         .catch(() => {});
 
       sounds.playSave();
-      return { success: true, user: loggedInUser };
+      return { success: true, user: loggedInUser, subscription: json.subscription as SubscriptionInfo | undefined };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       return { success: false, error: msg };
