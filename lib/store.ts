@@ -32,13 +32,13 @@ const STORAGE_KEYS = {
 };
 
 export const defaultSubscription: SubscriptionInfo = {
-  tier: 'ENTERPRISE',
-  planName: 'Enterprise Cloud License',
-  priceMonthly: 3499,
-  status: 'ACTIVE',
-  validUntil: '2027-12-31',
-  licenseKey: 'AMB-ENT-8849-MH-2026',
-  isPaid: true,
+  tier: 'STARTER',
+  planName: 'Starter Retail',
+  priceMonthly: 999,
+  status: 'TRIAL',
+  validUntil: '—',
+  licenseKey: 'PENDING',
+  isPaid: false,
 };
 
 // Safe localStorage helper
@@ -72,8 +72,11 @@ export function useERPStore() {
   const [subscription, setSubscriptionState] = useState<SubscriptionInfo>(defaultSubscription);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [dateRef, setDateRef] = useState({ year: 2026, month: 11 });
 
   useEffect(() => {
+    const d = new Date();
+    setDateRef({ year: d.getFullYear(), month: d.getMonth() + 1 });
     // 1. Hydrate from localStorage first
     const storedTenant = getStored(STORAGE_KEYS.TENANT, initialTenant);
     const storedParties = getStored(STORAGE_KEYS.PARTIES, initialParties);
@@ -106,37 +109,92 @@ export function useERPStore() {
     }
     setIsLoaded(true);
 
-    // 2. Fetch live database records from Enterprise Cloud immediately
+    // 2. Fetch live database records, user, and subscription from Supabase immediately
     if (typeof window !== 'undefined') {
-      fetch('/api/cloud/sync')
+      fetch('/api/cloud/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: storedCurrentUser?.id,
+          email: storedCurrentUser?.email,
+          tenantId: storedTenant?.id,
+        }),
+      })
         .then((res) => res.json())
         .then((json) => {
           if (json.success && json.data) {
-            if (json.data.items && json.data.items.length > 0) {
+            if (Array.isArray(json.data.items)) {
               setItems(json.data.items);
               setStored(STORAGE_KEYS.ITEMS, json.data.items);
             }
-            if (json.data.batches && json.data.batches.length > 0) {
+            if (Array.isArray(json.data.batches)) {
               setBatches(json.data.batches);
               setStored(STORAGE_KEYS.BATCHES, json.data.batches);
             }
-            if (json.data.parties && json.data.parties.length > 0) {
+            if (Array.isArray(json.data.parties)) {
               setParties(json.data.parties);
               setStored(STORAGE_KEYS.PARTIES, json.data.parties);
             }
-            if (json.data.invoices && json.data.invoices.length > 0) {
-              setInvoices(json.data.invoices);
-              setStored(STORAGE_KEYS.INVOICES, json.data.invoices);
+            if (Array.isArray(json.data.invoices)) {
+              const normalizedInvoices = json.data.invoices.map((inv: any) => ({
+                ...inv,
+                items: Array.isArray(inv.items) ? inv.items : [],
+              }));
+              setInvoices(normalizedInvoices);
+              setStored(STORAGE_KEYS.INVOICES, normalizedInvoices);
             }
             if (json.data.tenant) {
               setTenant(json.data.tenant);
               setStored(STORAGE_KEYS.TENANT, json.data.tenant);
+            }
+            if (json.data.user) {
+              setCurrentUser(json.data.user);
+              setStored(STORAGE_KEYS.CURRENT_USER, json.data.user);
+            }
+            if (json.data.subscription) {
+              setSubscriptionState(json.data.subscription);
+              setStored(STORAGE_KEYS.SUBSCRIPTION, json.data.subscription);
             }
           }
         })
         .catch((e) => {
           console.warn('Initial Enterprise Cloud sync skipped:', e);
         });
+
+      const handleFocusSync = () => {
+        const latestUser = getStored<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, null);
+        const latestTenant = getStored<Tenant>(STORAGE_KEYS.TENANT, initialTenant);
+        fetch('/api/cloud/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: latestUser?.id,
+            email: latestUser?.email,
+            tenantId: latestTenant?.id,
+          }),
+        })
+          .then((res) => res.json())
+          .then((json) => {
+            if (json.success && json.data) {
+              if (json.data.user) {
+                setCurrentUser(json.data.user);
+                setStored(STORAGE_KEYS.CURRENT_USER, json.data.user);
+              }
+              if (json.data.tenant) {
+                setTenant(json.data.tenant);
+                setStored(STORAGE_KEYS.TENANT, json.data.tenant);
+              }
+              if (json.data.subscription) {
+                setSubscriptionState(json.data.subscription);
+                setStored(STORAGE_KEYS.SUBSCRIPTION, json.data.subscription);
+              }
+            }
+          })
+          .catch(() => {});
+      };
+
+      window.addEventListener('focus', handleFocusSync);
+      return () => window.removeEventListener('focus', handleFocusSync);
     }
   }, []);
 
@@ -153,9 +211,34 @@ export function useERPStore() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
-    }).catch((err) => {
-      console.warn('Background Enterprise Cloud push failed:', err);
-    });
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json.success) {
+          console.error('Supabase push error:', json.error);
+        }
+      })
+      .catch((err) => {
+        console.warn('Background Enterprise Cloud push failed:', err);
+      });
+  };
+
+  const triggerCloudDelete = (table: 'items' | 'item_batches' | 'parties' | 'sales_invoices', id: string) => {
+    if (typeof window === 'undefined') return;
+    fetch('/api/cloud/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, id }),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json.success) {
+          console.error(`Supabase delete error (${table}):`, json.error);
+        }
+      })
+      .catch((err) => {
+        console.warn('Background Supabase delete failed:', err);
+      });
   };
 
   // Save changes to localStorage & trigger cloud backup
@@ -193,22 +276,30 @@ export function useERPStore() {
   const syncWithSupabase = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch('/api/cloud/sync');
+      const res = await fetch('/api/cloud/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser?.id,
+          email: currentUser?.email,
+          tenantId: tenant?.id,
+        }),
+      });
       const json = await res.json();
       if (json.success && json.data) {
-        if (json.data.items && json.data.items.length > 0) {
+        if (Array.isArray(json.data.items)) {
           setItems(json.data.items);
           setStored(STORAGE_KEYS.ITEMS, json.data.items);
         }
-        if (json.data.batches && json.data.batches.length > 0) {
+        if (Array.isArray(json.data.batches)) {
           setBatches(json.data.batches);
           setStored(STORAGE_KEYS.BATCHES, json.data.batches);
         }
-        if (json.data.parties && json.data.parties.length > 0) {
+        if (Array.isArray(json.data.parties)) {
           setParties(json.data.parties);
           setStored(STORAGE_KEYS.PARTIES, json.data.parties);
         }
-        if (json.data.invoices && json.data.invoices.length > 0) {
+        if (Array.isArray(json.data.invoices)) {
           const normalizedInvoices = json.data.invoices.map((inv: any) => ({
             ...inv,
             items: Array.isArray(inv.items) ? inv.items : [],
@@ -220,6 +311,14 @@ export function useERPStore() {
           setTenant(json.data.tenant);
           setStored(STORAGE_KEYS.TENANT, json.data.tenant);
         }
+        if (json.data.user) {
+          setCurrentUser(json.data.user);
+          setStored(STORAGE_KEYS.CURRENT_USER, json.data.user);
+        }
+        if (json.data.subscription) {
+          setSubscriptionState(json.data.subscription);
+          setStored(STORAGE_KEYS.SUBSCRIPTION, json.data.subscription);
+        }
         return { success: true, message: 'All records successfully synchronized from Enterprise Cloud!' };
       }
       return { success: false, message: json.error || 'Enterprise cloud returned empty record set' };
@@ -229,7 +328,7 @@ export function useERPStore() {
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [currentUser, tenant]);
 
   // Push all local data into Supabase tables via server-side endpoint
   const pushToSupabase = useCallback(async () => {
@@ -354,19 +453,21 @@ export function useERPStore() {
     }
 
     const updatedInvoices = [newInvoice, ...invoices];
-    persistBatches(updatedBatches);
-    persistInvoices(updatedInvoices);
-
-    // Sync invoice to Supabase in background
-    const client = getSupabase();
-    if (client) {
-      const { items: _, ...invoiceRecord } = newInvoice;
-      client.from('sales_invoices').insert([invoiceRecord]).then();
-    }
+    setBatches(updatedBatches);
+    setStored(STORAGE_KEYS.BATCHES, updatedBatches);
+    setInvoices(updatedInvoices);
+    setStored(STORAGE_KEYS.INVOICES, updatedInvoices);
+    triggerCloudPush({
+      tenant,
+      parties: updatedParties,
+      items,
+      batches: updatedBatches,
+      invoices: updatedInvoices,
+    });
 
     sounds.playSave();
     return newInvoice;
-  }, [batches, invoices, parties]);
+  }, [batches, invoices, parties, tenant, items]);
 
   // Inward Purchase entry
   const addPurchaseBill = useCallback((supplierId: string, invoiceNo: string, lines: {
@@ -427,8 +528,6 @@ export function useERPStore() {
       created_at: new Date().toISOString(),
     };
     persistItems([...items, newItem]);
-    const client = getSupabase();
-    if (client) client.from('items').insert([newItem]).then();
     sounds.playScan();
     return newItem;
   }, [items]);
@@ -441,8 +540,6 @@ export function useERPStore() {
       created_at: new Date().toISOString(),
     };
     persistBatches([...batches, newBatch]);
-    const client = getSupabase();
-    if (client) client.from('item_batches').insert([newBatch]).then();
     sounds.playScan();
     return newBatch;
   }, [batches]);
@@ -455,17 +552,14 @@ export function useERPStore() {
       created_at: new Date().toISOString(),
     };
     persistParties([...parties, newParty]);
-    const client = getSupabase();
-    if (client) client.from('parties').insert([newParty]).then();
     sounds.playSave();
     return newParty;
   }, [parties]);
 
   // Dashboard & KPI Analytics calculations
   const getStats = useCallback(() => {
-    // Check if on client or prerender
-    const currentYear = 2026;
-    const currentMonth = 11;
+    const currentYear = dateRef.year;
+    const currentMonth = dateRef.month;
 
     const todayInvoices = invoices;
 
@@ -521,7 +615,7 @@ export function useERPStore() {
       totalItemsCount: items.length,
       totalBatchesCount: batches.length,
     };
-  }, [invoices, parties, batches, items]);
+  }, [invoices, parties, batches, items, dateRef]);
 
   // User Authentication & Session (Phone Number / Mobile Login)
   const loginWithPhone = useCallback((phoneNumber: string, otpOrPin?: string): { success: boolean; user: UserProfile; isNew?: boolean } => {
@@ -600,13 +694,15 @@ export function useERPStore() {
       setStored(STORAGE_KEYS.CURRENT_USER, registeredUser);
       sounds.playSave();
 
-      triggerCloudPush({
-        tenant: registeredTenant || tenant,
-        parties,
-        items,
-        batches,
-        invoices,
-      });
+      // Clear local demo operational arrays so a new store starts cleanly instead of pushing mock data
+      setParties([]);
+      setItems([]);
+      setBatches([]);
+      setInvoices([]);
+      setStored(STORAGE_KEYS.PARTIES, []);
+      setStored(STORAGE_KEYS.ITEMS, []);
+      setStored(STORAGE_KEYS.BATCHES, []);
+      setStored(STORAGE_KEYS.INVOICES, []);
 
       return { success: true, user: registeredUser };
     } catch (err: unknown) {
@@ -659,10 +755,52 @@ export function useERPStore() {
         setStored(STORAGE_KEYS.TENANT, json.tenant);
       }
 
+      if (json.subscription) {
+        setSubscriptionState(json.subscription);
+        setStored(STORAGE_KEYS.SUBSCRIPTION, json.subscription);
+      }
+
       const cleanPhone = loggedInUser.phone.slice(-10);
       const updatedUsers = [...users.filter((u) => u.phone.slice(-10) !== cleanPhone), loggedInUser];
       setUsers(updatedUsers);
       setStored(STORAGE_KEYS.USERS, updatedUsers);
+
+      // Sync operational records for this logged-in tenant immediately
+      fetch('/api/cloud/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: loggedInUser.id,
+          email: loggedInUser.email,
+          tenantId: json.tenant?.id,
+        }),
+      })
+        .then((r) => r.json())
+        .then((syncJson) => {
+          if (syncJson.success && syncJson.data) {
+            if (Array.isArray(syncJson.data.items)) {
+              setItems(syncJson.data.items);
+              setStored(STORAGE_KEYS.ITEMS, syncJson.data.items);
+            }
+            if (Array.isArray(syncJson.data.batches)) {
+              setBatches(syncJson.data.batches);
+              setStored(STORAGE_KEYS.BATCHES, syncJson.data.batches);
+            }
+            if (Array.isArray(syncJson.data.parties)) {
+              setParties(syncJson.data.parties);
+              setStored(STORAGE_KEYS.PARTIES, syncJson.data.parties);
+            }
+            if (Array.isArray(syncJson.data.invoices)) {
+              setInvoices(syncJson.data.invoices);
+              setStored(STORAGE_KEYS.INVOICES, syncJson.data.invoices);
+            }
+            if (syncJson.data.subscription) {
+              setSubscriptionState(syncJson.data.subscription);
+              setStored(STORAGE_KEYS.SUBSCRIPTION, syncJson.data.subscription);
+            }
+          }
+        })
+        .catch(() => {});
 
       sounds.playSave();
       return { success: true, user: loggedInUser };
@@ -676,34 +814,37 @@ export function useERPStore() {
 
   const deleteItem = useCallback((itemId: string) => {
     // Remove item AND all its batches
-    persistItems(items.filter((i) => i.id !== itemId));
-    persistBatches(batches.filter((b) => b.item_id !== itemId));
-    const client = getSupabase();
-    if (client) {
-      client.from('item_batches').delete().eq('item_id', itemId).then();
-      client.from('items').delete().eq('id', itemId).then();
-    }
+    const nextItems = items.filter((i) => i.id !== itemId);
+    const nextBatches = batches.filter((b) => b.item_id !== itemId);
+    setItems(nextItems);
+    setStored(STORAGE_KEYS.ITEMS, nextItems);
+    setBatches(nextBatches);
+    setStored(STORAGE_KEYS.BATCHES, nextBatches);
+    triggerCloudDelete('items', itemId);
     sounds.playScan();
   }, [items, batches]);
 
   const deleteBatch = useCallback((batchId: string) => {
-    persistBatches(batches.filter((b) => b.id !== batchId));
-    const client = getSupabase();
-    if (client) client.from('item_batches').delete().eq('id', batchId).then();
+    const nextBatches = batches.filter((b) => b.id !== batchId);
+    setBatches(nextBatches);
+    setStored(STORAGE_KEYS.BATCHES, nextBatches);
+    triggerCloudDelete('item_batches', batchId);
     sounds.playScan();
   }, [batches]);
 
   const deleteParty = useCallback((partyId: string) => {
-    persistParties(parties.filter((p) => p.id !== partyId));
-    const client = getSupabase();
-    if (client) client.from('parties').delete().eq('id', partyId).then();
+    const nextParties = parties.filter((p) => p.id !== partyId);
+    setParties(nextParties);
+    setStored(STORAGE_KEYS.PARTIES, nextParties);
+    triggerCloudDelete('parties', partyId);
     sounds.playScan();
   }, [parties]);
 
   const deleteInvoice = useCallback((invoiceId: string) => {
-    persistInvoices(invoices.filter((i) => i.id !== invoiceId));
-    const client = getSupabase();
-    if (client) client.from('sales_invoices').delete().eq('id', invoiceId).then();
+    const nextInvoices = invoices.filter((i) => i.id !== invoiceId);
+    setInvoices(nextInvoices);
+    setStored(STORAGE_KEYS.INVOICES, nextInvoices);
+    triggerCloudDelete('sales_invoices', invoiceId);
     sounds.playScan();
   }, [invoices]);
 
@@ -746,27 +887,84 @@ export function useERPStore() {
     sounds.playSave();
   };
 
-  const activateSubscription = useCallback((tier: SubscriptionTier, licenseKey?: string) => {
+  const activateSubscription = useCallback((
+    tier: SubscriptionTier,
+    licenseKey?: string,
+    planNameOverride?: string,
+    priceOverride?: number
+  ) => {
     const plans: Record<SubscriptionTier, { name: string; price: number }> = {
-      STARTER: { name: 'Starter Retail License', price: 999 },
-      PROFESSIONAL: { name: 'Professional Pharmacy Suite', price: 1999 },
-      ENTERPRISE: { name: 'Enterprise Cloud Chain Edition', price: 3499 },
+      STARTER: { name: 'Starter Retail', price: 999 },
+      PROFESSIONAL: { name: 'Professional Chemist', price: 1999 },
+      ENTERPRISE: { name: 'Enterprise Cloud', price: 3999 },
     };
-    const chosen = plans[tier] || plans.PROFESSIONAL;
+    const chosen = plans[tier] || plans.STARTER;
+    const finalPlanName = planNameOverride || chosen.name;
+    const finalPrice = priceOverride ?? chosen.price;
     const newSub: SubscriptionInfo = {
       tier,
-      planName: chosen.name,
-      priceMonthly: chosen.price,
+      planName: finalPlanName,
+      priceMonthly: finalPrice,
       status: 'ACTIVE',
-      validUntil: '2027-12-31',
+      validUntil: '2028-10-29',
       licenseKey: licenseKey || `AMB-${tier.slice(0, 3)}-${Math.floor(1000 + Math.random() * 9000)}-MH`,
       isPaid: true,
     };
     setSubscriptionState(newSub);
     setStored(STORAGE_KEYS.SUBSCRIPTION, newSub);
     sounds.playSave();
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser?.id,
+          email: currentUser?.email || tenant?.email,
+          plan: finalPlanName,
+          plan_duration: '1 month',
+        }),
+      }).catch((err) => console.warn('Subscription Supabase sync warning:', err));
+    }
+
     return newSub;
-  }, []);
+  }, [currentUser, tenant]);
+
+  const saveProfile = useCallback(async (params: {
+    account: { name: string; email?: string; phone: string };
+    business: Tenant;
+  }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser?.id,
+          currentEmail: currentUser?.email,
+          account: params.account,
+          business: params.business,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        return { success: false, error: json.error || 'Failed to save profile to Supabase.' };
+      }
+
+      if (json.user) {
+        setCurrentUser(json.user);
+        setStored(STORAGE_KEYS.CURRENT_USER, json.user);
+      }
+      if (json.tenant) {
+        setTenant(json.tenant);
+        setStored(STORAGE_KEYS.TENANT, json.tenant);
+      }
+      sounds.playSave();
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: msg };
+    }
+  }, [currentUser]);
 
   return {
     tenant,
@@ -804,5 +1002,6 @@ export function useERPStore() {
     setTenant: persistTenant,
     setSubscription: setSubscriptionState,
     activateSubscription,
+    saveProfile,
   };
 }

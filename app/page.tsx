@@ -94,10 +94,14 @@ export default function HomePage() {
                 </h1>
                 <Link
                   href="/subscription"
-                  className="text-[10px] uppercase font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
-                  title="Commercial Software License Active - Click to Manage"
+                  className={`text-[10px] uppercase font-mono font-bold px-2.5 py-0.5 rounded-full border transition-colors ${
+                    subscription?.status === 'EXPIRED'
+                      ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                  }`}
+                  title="Commercial Software License - Click to Manage"
                 >
-                  {subscription?.tier || 'ENTERPRISE'} • Active
+                  {subscription?.planName || subscription?.tier || 'Starter Retail'} • {subscription?.status === 'EXPIRED' ? 'No Plan' : 'Active'}
                 </Link>
               </div>
               <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">

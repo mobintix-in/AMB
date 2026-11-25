@@ -14,6 +14,15 @@ export interface Tenant {
   state: string;
   state_code: string;
   currency: string;
+  logo_url?: string;
+  bank_account_name?: string;
+  bank_name?: string;
+  bank_account_no?: string;
+  bank_ifsc?: string;
+  upi_id?: string;
+  invoice_terms?: string;
+  invoice_notes?: string;
+  updated_at?: string;
 }
 
 export interface Party {
@@ -196,6 +205,7 @@ export interface UserProfile {
   gstin?: string;
   is_verified: boolean;
   avatar_url?: string;
+  logo_url?: string;
   created_at: string;
 }
 

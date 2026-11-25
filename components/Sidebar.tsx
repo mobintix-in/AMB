@@ -1,29 +1,30 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { 
-  Building2, 
-  Receipt, 
-  Boxes, 
-  ShoppingBag, 
-  AlertTriangle, 
-  Users, 
-  BarChart3, 
-  Search, 
-  Volume2, 
-  VolumeX, 
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import {
+  Building2,
+  Receipt,
+  Boxes,
+  ShoppingBag,
+  AlertTriangle,
+  Users,
+  BarChart3,
+  Search,
+  Volume2,
+  VolumeX,
   LayoutDashboard,
   Plus,
   LogOut,
   Menu,
   X,
-  CreditCard
-} from 'lucide-react';
-import { sounds } from '@/lib/audio';
-import { useERPStore } from '@/lib/store';
-import { CommandPalette } from './CommandPalette';
+  CreditCard,
+  UserCircle,
+} from "lucide-react";
+import { sounds } from "@/lib/audio";
+import { useERPStore } from "@/lib/store";
+import { CommandPalette } from "./CommandPalette";
 
 interface SidebarProps {
   onResetData?: () => void;
@@ -32,7 +33,7 @@ interface SidebarProps {
 export function Sidebar({ onResetData }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { currentUser, isLoaded, subscription, logout } = useERPStore();
+  const { currentUser, tenant, isLoaded, subscription, logout } = useERPStore();
   const [mounted, setMounted] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -45,7 +46,7 @@ export function Sidebar({ onResetData }: SidebarProps) {
   // Commercial App Auth Guard: Force login when anyone accesses the application
   useEffect(() => {
     if (mounted && isLoaded && !currentUser) {
-      router.replace('/login');
+      router.replace("/login");
     }
   }, [mounted, isLoaded, currentUser, router]);
 
@@ -57,14 +58,19 @@ export function Sidebar({ onResetData }: SidebarProps) {
   };
 
   const navLinks = [
-    { href: '/', label: 'Home', icon: LayoutDashboard },
-    { href: '/billing', label: 'Billing POS', icon: Receipt },
-    { href: '/inventory', label: 'Inventory & Stock', icon: Boxes },
-    { href: '/purchases', label: 'Purchases (GRN)', icon: ShoppingBag },
-    { href: '/expiry', label: 'Expiry Radar', icon: AlertTriangle, badge: 'Alert' },
-    { href: '/parties', label: 'Accounts & Ledgers', icon: Users },
-    { href: '/reports', label: 'Reports & GST', icon: BarChart3 },
-    { href: '/subscription', label: 'Subscription & License', icon: CreditCard, badge: 'PRO' },
+    { href: "/", label: "Home", icon: LayoutDashboard },
+    { href: "/billing", label: "Billing POS", icon: Receipt },
+    { href: "/inventory", label: "Inventory & Stock", icon: Boxes },
+    { href: "/purchases", label: "Purchases (GRN)", icon: ShoppingBag },
+    {
+      href: "/expiry",
+      label: "Expiry Radar",
+      icon: AlertTriangle,
+      badge: "Alert",
+    },
+    { href: "/parties", label: "Accounts & Ledgers", icon: Users },
+    { href: "/reports", label: "Reports & GST", icon: BarChart3 },
+    { href: "/profile", label: "Business Profile", icon: UserCircle },
   ];
 
   return (
@@ -79,7 +85,9 @@ export function Sidebar({ onResetData }: SidebarProps) {
             <div className="text-sm font-bold tracking-tight text-slate-900 leading-none">
               AMB <span className="text-indigo-600">MedERP</span>
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5 leading-none">Enterprise Edition</div>
+            <div className="text-[10px] text-slate-400 mt-0.5 leading-none">
+              Enterprise Edition
+            </div>
           </div>
         </Link>
         <div className="flex items-center gap-1">
@@ -95,14 +103,18 @@ export function Sidebar({ onResetData }: SidebarProps) {
             className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
             title="Toggle Menu"
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
           </button>
         </div>
       </div>
 
       {/* Mobile Drawer Backdrop */}
       {mobileOpen && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-xs animate-in fade-in"
           onClick={() => setMobileOpen(false)}
         />
@@ -111,15 +123,17 @@ export function Sidebar({ onResetData }: SidebarProps) {
       {/* Left Sidebar (Desktop Fixed Sticky & Mobile Slide-Out) */}
       <aside
         className={`fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between select-none transition-transform duration-200 ease-out md:translate-x-0 ${
-          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
+          mobileOpen
+            ? "translate-x-0 shadow-2xl"
+            : "-translate-x-full md:translate-x-0"
         }`}
       >
         {/* Top: Logo, Primary Action Button & Navigation Links */}
         <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
           {/* Logo Header */}
           <div className="p-4 pb-3 border-b border-slate-100 flex items-center justify-between">
-            <Link 
-              href="/" 
+            <Link
+              href="/"
               className="flex items-center gap-3 group"
               onClick={() => setMobileOpen(false)}
             >
@@ -133,7 +147,9 @@ export function Sidebar({ onResetData }: SidebarProps) {
                     MedERP
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-400 font-medium mt-1 leading-none">Enterprise Edition</div>
+                <div className="text-[10px] text-slate-400 font-medium mt-1 leading-none">
+                  Enterprise Edition
+                </div>
               </div>
             </Link>
 
@@ -169,12 +185,14 @@ export function Sidebar({ onResetData }: SidebarProps) {
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all ${
                     isActive
-                      ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium'
+                      ? "bg-indigo-50 text-indigo-700 font-bold shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <Icon
+                      className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`}
+                    />
                     <span>{link.label}</span>
                   </div>
                   {link.badge && (
@@ -207,13 +225,21 @@ export function Sidebar({ onResetData }: SidebarProps) {
             </button>
 
             <div className="flex items-center justify-between px-3 py-1 text-xs text-slate-600">
-              <span className="text-[11px] font-medium text-slate-500">Terminal Audio</span>
+              <span className="text-[11px] font-medium text-slate-500">
+                Terminal Audio
+              </span>
               <button
                 onClick={toggleAudio}
                 className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-                title={audioEnabled ? 'Mute Terminal Audio' : 'Enable Terminal Audio'}
+                title={
+                  audioEnabled ? "Mute Terminal Audio" : "Enable Terminal Audio"
+                }
               >
-                {audioEnabled ? <Volume2 className="w-3.5 h-3.5 text-indigo-600" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+                {audioEnabled ? (
+                  <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
+                ) : (
+                  <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+                )}
               </button>
             </div>
           </div>
@@ -222,34 +248,48 @@ export function Sidebar({ onResetData }: SidebarProps) {
           <div className="p-3 bg-slate-50/70 border-t border-slate-100">
             {mounted && currentUser ? (
               <div className="flex items-center justify-between gap-2">
-                <div
-                  className="flex items-center gap-2.5 min-w-0 flex-1"
-                  title={`Logged in as ${currentUser.name}`}
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2.5 min-w-0 flex-1 rounded-xl p-1 -m-1 hover:bg-slate-100/90 transition-colors"
+                  title="Open User & Business Profile"
                 >
-                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
-                    {currentUser.name.slice(0, 1).toUpperCase()}
-                  </div>
+                  {tenant?.logo_url || currentUser.logo_url ? (
+                    <img
+                      src={tenant?.logo_url || currentUser.logo_url}
+                      alt={currentUser.name}
+                      className="w-8 h-8 rounded-full object-cover border border-slate-200 bg-white flex-shrink-0 shadow-xs"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
+                      {currentUser.name.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-bold text-slate-900 truncate">
                       {currentUser.name}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-[10px] text-slate-500 truncate font-mono">
-                        {currentUser.phone || currentUser.email || 'Pharmacist'}
+                        {currentUser.phone || currentUser.email || "Pharmacist"}
                       </span>
-                      <Link 
-                        href="/subscription" 
-                        className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 uppercase font-mono tracking-wide"
-                        title="Commercial License Active - Click to Manage"
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase font-mono tracking-wide truncate max-w-[100px] ${
+                          subscription?.status === "EXPIRED"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}
                       >
-                        {subscription?.tier || 'ACTIVE'}
-                      </Link>
+                        {subscription?.status === "EXPIRED"
+                          ? "NO PLAN"
+                          : subscription?.tier || "STARTER"}
+                      </span>
                     </div>
                   </div>
-                </div>
+                </Link>
                 <button
                   onClick={() => {
-                    if (confirm('Log out from current terminal session?')) {
+                    if (confirm("Log out from current terminal session?")) {
                       logout();
                     }
                   }}
@@ -282,7 +322,9 @@ export function Sidebar({ onResetData }: SidebarProps) {
       </aside>
 
       {/* Ctrl + K Universal Command Palette */}
-      {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
+      {showCommandPalette && (
+        <CommandPalette onClose={() => setShowCommandPalette(false)} />
+      )}
     </>
   );
 }

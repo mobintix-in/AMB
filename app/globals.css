@@ -50,24 +50,28 @@ input, select, textarea {
 /* Print Styles for thermal and A4 receipts */
 @media print {
   html, body {
+    display: block !important;
     background-color: #ffffff !important;
     color: #000000 !important;
     width: 100% !important;
     height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
   }
 
-  /* Hide navigation, background dashboard, buttons during print */
-  header, nav, .print\:hidden {
+  /* Hide app shell; InvoicePrintModal portals #amb-print-root directly on body */
+  body > *:not(#amb-print-root) {
     display: none !important;
   }
 
-  /* Printable invoice area resets */
-  #print-invoice-area {
+  #amb-print-root {
     display: block !important;
-    visibility: visible !important;
-    box-shadow: none !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
   }
 }
