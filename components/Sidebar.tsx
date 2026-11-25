@@ -153,7 +153,7 @@ export function Sidebar({ onResetData }: SidebarProps) {
               className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-xs shadow-sm transition-all hover:shadow active:scale-[0.99]"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>+ New Sales Bill (F1)</span>
+              <span>New Sales Bill (F1)</span>
             </Link>
           </div>
 
