@@ -2,17 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import QRCode from 'qrcode';
 import {
   Building2,
-  Check,
   ShieldCheck,
-  Sparkles,
   ArrowRight,
-  BadgeCheck,
   CheckCircle2,
-  Lock,
   RefreshCw,
   AlertCircle,
+  QrCode,
+  Copy,
+  Check,
+  ExternalLink,
+  LogOut,
 } from 'lucide-react';
 import { useERPStore } from '@/lib/store';
 import { SubscriptionTier } from '@/types/erp';
@@ -26,10 +28,6 @@ interface LivePackage {
   price: number;
   yearlyPrice: number;
   terminals: string;
-  period: string;
-  description: string;
-  popular?: boolean;
-  features: string[];
 }
 
 function mapCodeToTier(code: string, name: string): SubscriptionTier {
@@ -41,9 +39,20 @@ function mapCodeToTier(code: string, name: string): SubscriptionTier {
 
 export default function SubscriptionPage() {
   const router = useRouter();
-  const { currentUser, subscription, syncWithSupabase, isSyncing } = useERPStore();
+  const { currentUser, tenant, subscription, isLoaded, syncWithSupabase, logout, isSyncing } = useERPStore();
   const [livePlans, setLivePlans] = useState<LivePackage[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [payDuration, setPayDuration] = useState<'1 month' | '1 year'>('1 month');
   const [loadingPlans, setLoadingPlans] = useState(true);
+  const [paymentConfig, setPaymentConfig] = useState<{ upiId: string; payeeName: string }>({
+    upiId: '9409862204@kotakbank',
+    payeeName: 'Mobintix Infotech',
+  });
+
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [copiedUpi, setCopiedUpi] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyFeedback, setVerifyFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadSubscriptionData = useCallback(async () => {
     setLoadingPlans(true);
@@ -62,14 +71,21 @@ export default function SubscriptionPage() {
             name: p.name,
             code: p.code || '',
             price: Number(p.monthlyPrice ?? 999),
-            yearlyPrice: Number(p.yearlyPrice ?? 9999),
-            terminals: p.terminals || '1 Counter Terminal',
-            period: '/ month',
-            description: p.description || '',
-            popular: Boolean(p.popular),
-            features: Array.isArray(p.features) ? p.features : [],
+            yearlyPrice: Number(p.yearlyPrice ?? 3999),
+            terminals: p.terminals || 'Unlimited Terminals',
           }));
         setLivePlans(mapped);
+        if (mapped.length > 0) {
+          setSelectedPlanId((prev) =>
+            prev && mapped.some((p) => p.id === prev) ? prev : mapped[0].id
+          );
+        }
+      }
+      if (json.paymentConfig?.upiId) {
+        setPaymentConfig({
+          upiId: json.paymentConfig.upiId,
+          payeeName: json.paymentConfig.payeeName || 'Mobintix Infotech',
+        });
       }
     } catch (err) {
       console.warn('Failed to fetch packages from Supabase:', err);
@@ -79,10 +95,89 @@ export default function SubscriptionPage() {
   }, [syncWithSupabase]);
 
   useEffect(() => {
-    loadSubscriptionData();
-  }, []);
+    if (isLoaded) {
+      loadSubscriptionData();
+    }
+  }, [isLoaded]);
 
-  const isPlanActive = subscription?.status !== 'EXPIRED' && Boolean(subscription?.isPaid);
+  const selectedPkg = livePlans.find((p) => p.id === selectedPlanId) || livePlans[0] || null;
+  const monthlyBtnPrice = selectedPkg ? Number(selectedPkg.price ?? 999) : 999;
+  const annualBtnPrice = selectedPkg ? Number(selectedPkg.yearlyPrice ?? 3999) : 3999;
+  const payAmount = payDuration === '1 year' ? annualBtnPrice : monthlyBtnPrice;
+
+  const upiUri = `upi://pay?pa=${encodeURIComponent(paymentConfig.upiId)}&pn=${encodeURIComponent(
+    paymentConfig.payeeName
+  )}&am=${payAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
+    `${selectedPkg?.name || 'AMB Plan'} (${payDuration})`
+  )}`;
+
+  useEffect(() => {
+    let active = true;
+    QRCode.toDataURL(upiUri, {
+      width: 240,
+      margin: 1,
+      color: { dark: '#0f172a', light: '#ffffff' },
+    })
+      .then((url) => {
+        if (active) setQrDataUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [upiUri]);
+
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(paymentConfig.upiId);
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2000);
+  };
+
+  const handleVerifyAndSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifyFeedback(null);
+
+    const planName = selectedPkg?.name || 'AMB MedERP';
+
+    setIsVerifying(true);
+    try {
+      const res = await fetch('/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser?.id,
+          email: currentUser?.email || tenant?.email,
+          plan: planName,
+          plan_duration: payDuration,
+          amount: payAmount,
+          utr_note: `UPI QR ₹${payAmount.toLocaleString('en-IN')} (${payDuration}) • Verified OK, Awaiting Admin`,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setVerifyFeedback({
+          type: 'error',
+          text: json.error || 'Payment verification failed.',
+        });
+        return;
+      }
+
+      sounds.playSave();
+      setVerifyFeedback({
+        type: 'success',
+        text: 'Verified OK! Payment submitted to the Admin Panel for manual approval.',
+      });
+      await syncWithSupabase();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setVerifyFeedback({ type: 'error', text: msg || 'Network error verifying payment.' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const isPlanActive = subscription?.status === 'ACTIVE' && Boolean(subscription?.isPaid);
+  const isPendingApproval = subscription?.status === 'TRIAL';
 
   const handleEnterDashboard = () => {
     if (!isPlanActive) return;
@@ -94,7 +189,7 @@ export default function SubscriptionPage() {
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans select-none">
       {/* Top Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-sm">
               <Building2 className="w-5 h-5" />
@@ -104,15 +199,23 @@ export default function SubscriptionPage() {
                 AMB <span className="text-indigo-600">MedERP</span>
               </div>
               <div className="text-[10px] text-slate-500 font-medium mt-1 leading-none">
-                Commercial License Status
+                UPI Payment &amp; Commercial Licensing
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {currentUser && (
               <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600 border-r border-slate-200 pr-3">
-                <span className={`w-2 h-2 rounded-full ${isPlanActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    isPlanActive
+                      ? 'bg-emerald-500 animate-pulse'
+                      : isPendingApproval
+                        ? 'bg-amber-500 animate-pulse'
+                        : 'bg-rose-500'
+                  }`}
+                />
                 <span className="font-semibold text-slate-900">{currentUser.name}</span>
                 <span className="text-slate-400 font-mono">({currentUser.phone})</span>
               </div>
@@ -120,191 +223,223 @@ export default function SubscriptionPage() {
             <button
               onClick={loadSubscriptionData}
               disabled={isSyncing || loadingPlans}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs shadow-2xs transition-all"
-              title="Refresh plan assigned by Admin Console"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs shadow-2xs transition-all"
+              title="Check approval status from Admin Console"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing || loadingPlans ? 'animate-spin text-indigo-600' : 'text-slate-500'}`} />
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${isSyncing || loadingPlans ? 'animate-spin text-indigo-600' : 'text-slate-500'}`}
+              />
               <span>Sync Plan</span>
             </button>
             <button
               onClick={handleEnterDashboard}
               disabled={!isPlanActive}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs shadow-sm transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs shadow-sm transition-all"
             >
-              <span>Enter Main Dashboard</span>
+              <span>Dashboard</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+            {currentUser && (
+              <button
+                onClick={() => {
+                  logout();
+                  router.push('/login');
+                }}
+                className="p-2 rounded-xl border border-slate-200 hover:bg-rose-50 hover:text-rose-600 text-slate-500 transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+      <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Hero Section */}
-        <div className="text-center space-y-3 max-w-2xl mx-auto pt-2">
+        <div className="text-center space-y-2.5 max-w-2xl mx-auto pt-1">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold">
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Admin-Managed Licensing • Live Supabase Sync</span>
+            <QrCode className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Direct UPI QR Payment • Manual Admin Verification</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
             Subscription &amp; License Plan
           </h1>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            Your active package and expiry are assigned and managed directly from the AMB Admin Console.
+          <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+            Scan the direct UPI QR code below to complete payment, then submit for manual verification in the Admin Panel.
           </p>
         </div>
 
-        {/* Inactive / Revoked Warning */}
-        {!isPlanActive && (
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-3 max-w-3xl mx-auto">
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-            <div>
-              <div className="font-bold">No Active Commercial Package Assigned</div>
-              <div className="text-amber-700 mt-0.5">
-                Please ask your AMB Administrator to assign or activate a subscription package for your account in the Admin Console, then click <strong>Sync Plan</strong>.
+        {/* Direct UPI QR Payment & Verification Gateway */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="border-b border-slate-100 pb-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <QrCode className="w-4 h-4 text-indigo-600" />
+                  <span>Direct UPI QR Payment Gateway</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Pay directly to <strong>{paymentConfig.payeeName}</strong> ({paymentConfig.upiId}) and submit for approval
+                </p>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* Current License Status Card (Read directly from Supabase) */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center flex-shrink-0 ${
-              isPlanActive
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                : 'bg-amber-50 border-amber-200 text-amber-600'
-            }`}>
-              <BadgeCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-extrabold text-slate-900">{subscription.planName}</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border uppercase ${
-                  isPlanActive
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                    : 'bg-amber-100 text-amber-800 border-amber-200'
-                }`}>
-                  {isPlanActive ? 'ACTIVE' : 'NO PLAN'}
-                </span>
-              </div>
-              <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2 font-mono">
-                <span>UTR / Ref: <strong className="text-slate-700">{subscription.licenseKey}</strong></span>
-                <span className="text-slate-300">•</span>
-                <span>Valid Until: <strong className="text-slate-700">{subscription.validUntil}</strong></span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleEnterDashboard}
-            disabled={!isPlanActive}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs shadow-sm transition-all"
-          >
-            <span>Proceed to Dashboard (F1)</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Live Pricing Cards from Supabase (Read-Only View) */}
-        <div className={`grid grid-cols-1 ${livePlans.length === 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'} gap-6`}>
-          {loadingPlans && livePlans.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-xs text-slate-400">
-              Loading commercial packages from Supabase...
-            </div>
-          ) : livePlans.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-xs text-slate-400">
-              No commercial packages configured in Supabase yet.
-            </div>
-          ) : (
-            livePlans.map((p) => {
-              const isAssigned =
-                isPlanActive &&
-                subscription.planName.trim().toLowerCase() === p.name.trim().toLowerCase();
-              return (
-                <div
-                  key={p.id}
-                  className={`relative bg-white rounded-2xl p-6 flex flex-col justify-between transition-all border-2 ${
-                    isAssigned
-                      ? 'border-indigo-600 shadow-md ring-2 ring-indigo-100'
-                      : 'border-slate-200 shadow-xs opacity-90'
+              <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs flex-shrink-0 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setPayDuration('1 month')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                    payDuration === '1 month' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {p.popular && !isAssigned && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-indigo-600 text-white text-[10px] font-bold rounded-full uppercase tracking-wider shadow-xs">
-                      Popular
-                    </div>
-                  )}
-                  {isAssigned && (
-                    <div className="absolute -top-3 right-5 px-3 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full uppercase tracking-wider shadow-xs">
-                      Current License
-                    </div>
-                  )}
+                  ₹{monthlyBtnPrice.toLocaleString('en-IN')} / Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayDuration('1 year')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                    payDuration === '1 year' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  ₹{annualBtnPrice.toLocaleString('en-IN')} / Annual
+                </button>
+              </div>
+            </div>
 
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-slate-900">{p.name}</h3>
-                      {isAssigned && (
-                        <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                          <Check className="w-3 h-3 stroke-[3]" />
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1 min-h-[36px]">{p.description}</p>
+            {livePlans.length > 1 && (
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mr-1">
+                  Select Plan:
+                </span>
+                {livePlans.map((pkg) => (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    onClick={() => setSelectedPlanId(pkg.id)}
+                    className={`px-3 py-1.5 rounded-xl font-semibold border transition-all whitespace-nowrap ${
+                      selectedPkg?.id === pkg.id
+                        ? 'bg-slate-900 border-slate-900 text-white shadow-2xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    {pkg.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-                    <div className="mt-4 pt-4 border-t border-slate-100">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-black text-slate-900 font-mono">
-                          ₹{p.price.toLocaleString('en-IN')}
-                        </span>
-                        <span className="text-xs text-slate-500 font-medium">{p.period}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        or ₹{p.yearlyPrice.toLocaleString('en-IN')} billed annually • {p.terminals}
-                      </div>
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+            {/* Left: Direct Scannable QR Code */}
+            <div className="md:col-span-5 bg-slate-50/80 border border-slate-200 rounded-2xl p-5 flex flex-col items-center justify-between text-center space-y-3 h-full">
+              <div className="text-xs font-semibold text-slate-500">
+                {selectedPkg?.name || 'AMB MedERP'} • {payDuration === '1 year' ? 'Annual Plan' : 'Monthly Plan'}
+              </div>
+              <div className="text-3xl font-black text-slate-900 font-mono">
+                ₹{payAmount.toLocaleString('en-IN')}
+                <span className="text-xs font-semibold text-slate-500 ml-1">
+                  /{payDuration === '1 year' ? 'annual' : 'month'}
+                </span>
+              </div>
 
-                    <ul className="mt-6 space-y-2.5 text-xs text-slate-600">
-                      {p.features.map((f, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+              <div className="p-2.5 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col items-center">
+                {qrDataUrl ? (
+                  <img src={qrDataUrl} alt="Direct UPI QR Code" className="w-44 h-44 block" />
+                ) : (
+                  <div className="w-44 h-44 bg-slate-100 rounded-xl" />
+                )}
+                <span className="text-[9px] font-bold text-indigo-700 font-mono mt-1.5">
+                  SCAN WITH GPAY / PHONEPE / PAYTM / BHIM
+                </span>
+              </div>
 
-                  <div className="pt-6 mt-6 border-t border-slate-100">
-                    {isAssigned ? (
-                      <div className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-indigo-600 text-white text-center shadow-xs flex items-center justify-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Active Assigned Package</span>
-                      </div>
+              <div className="w-full flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs">
+                <span className="font-mono font-bold text-slate-900 truncate">{paymentConfig.upiId}</span>
+                <button
+                  type="button"
+                  onClick={handleCopyUpi}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] flex items-center gap-1 flex-shrink-0"
+                >
+                  {copiedUpi ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedUpi ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+
+              <a
+                href={upiUri}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700"
+              >
+                <span>Open directly in UPI App</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+
+            {/* Right: Payment Verification Action */}
+            <form onSubmit={handleVerifyAndSubmit} className="md:col-span-7 flex flex-col justify-between space-y-4 text-xs h-full">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Verify Your UPI Payment</h3>
+                  <p className="text-slate-500 text-[11px] mt-0.5">
+                    After paying ₹{payAmount.toLocaleString('en-IN')} to <strong>{paymentConfig.upiId}</strong>, click verify below to send for manual approval in the Admin Panel.
+                  </p>
+                </div>
+
+                {verifyFeedback && (
+                  <div
+                    className={`p-3.5 rounded-xl border text-xs font-medium flex items-center gap-2 ${
+                      verifyFeedback.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-rose-50 border-rose-200 text-rose-700'
+                    }`}
+                  >
+                    {verifyFeedback.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                     ) : (
-                      <div className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-100 text-slate-500 text-center flex items-center justify-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>Assigned by Admin Console</span>
-                      </div>
+                      <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
                     )}
+                    <span>{verifyFeedback.text}</span>
+                  </div>
+                )}
+
+                <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 font-medium">Selected Package</span>
+                    <span className="font-bold text-slate-900">{selectedPkg?.name || 'AMB MedERP'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 font-medium">Billing Cycle</span>
+                    <span className="font-semibold text-slate-800">
+                      {payDuration === '1 year' ? 'Annual (12 Months)' : 'Monthly (1 Month)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 font-medium">Payee UPI ID</span>
+                    <span className="font-mono font-semibold text-indigo-700">{paymentConfig.upiId}</span>
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700">Payable Amount</span>
+                    <span className="font-mono font-black text-slate-900">₹{payAmount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
 
-        {/* Bottom CTA */}
-        <div className="text-center pt-4 pb-8">
-          <button
-            onClick={handleEnterDashboard}
-            disabled={!isPlanActive}
-            className="inline-flex items-center gap-3 px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-sm shadow-md transition-all"
-          >
-            <span>Proceed to AMB MedERP Dashboard</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
-          <div className="text-[11px] text-slate-400 mt-2">
-            Package upgrades and renewals are managed exclusively in the AMB Admin Console
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 space-y-1">
+                  <div className="font-bold text-slate-800">Manual Admin Approval Flow:</div>
+                  <div>1. Scan QR &amp; complete UPI payment of ₹{payAmount.toLocaleString('en-IN')}.</div>
+                  <div>2. Click <strong>Verify Payment &amp; Submit for Approval</strong> (Verified OK).</div>
+                  <div>3. Admin verifies in Admin Console → Users and clicks <strong>Verify &amp; Activate</strong>.</div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isVerifying}
+                className="w-full py-3 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>{isVerifying ? 'Verifying Payment...' : 'Verify Payment & Submit for Approval'}</span>
+              </button>
+            </form>
           </div>
         </div>
       </main>

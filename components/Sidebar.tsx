@@ -33,7 +33,7 @@ interface SidebarProps {
 export function Sidebar({ onResetData }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { currentUser, tenant, isLoaded, subscription, logout } = useERPStore();
+  const { currentUser, tenant, isLoaded, cloudSynced, subscription, logout } = useERPStore();
   const [mounted, setMounted] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -43,12 +43,23 @@ export function Sidebar({ onResetData }: SidebarProps) {
     setMounted(true);
   }, []);
 
-  // Commercial App Auth Guard: Force login when anyone accesses the application
+  const isSubscriptionBlocked = Boolean(
+    currentUser &&
+      cloudSynced &&
+      (!subscription || subscription.status === 'EXPIRED' || !subscription.isPaid)
+  );
+
+  // Commercial App Auth & Subscription Gate
   useEffect(() => {
-    if (mounted && isLoaded && !currentUser) {
+    if (!mounted || !isLoaded) return;
+    if (!currentUser) {
       router.replace("/login");
+      return;
     }
-  }, [mounted, isLoaded, currentUser, router]);
+    if ((cloudSynced || subscription?.status === 'EXPIRED') && (!subscription || subscription.status === 'EXPIRED' || !subscription.isPaid) && pathname !== '/subscription') {
+      router.replace("/subscription");
+    }
+  }, [mounted, isLoaded, cloudSynced, currentUser, subscription, pathname, router]);
 
   const toggleAudio = () => {
     const nextState = !audioEnabled;
@@ -75,6 +86,33 @@ export function Sidebar({ onResetData }: SidebarProps) {
 
   return (
     <>
+      {/* Full-Screen Subscription / Auth Lock Overlay */}
+      {mounted && isLoaded && (!currentUser || isSubscriptionBlocked) && (
+        <div className="fixed inset-0 z-[100] bg-slate-50 flex items-center justify-center p-4 select-none">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-lg max-w-md w-full p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-base font-extrabold text-slate-900">
+                {!currentUser ? 'Authentication Required' : 'Subscription Required or Expired'}
+              </h2>
+              <p className="text-xs text-slate-500">
+                {!currentUser
+                  ? 'Redirecting to terminal sign-in...'
+                  : `Your plan (${subscription?.planName || 'No Plan'}) is inactive or expired. Please contact your AMB Administrator to activate your license.`}
+              </p>
+            </div>
+            <Link
+              href={!currentUser ? '/login' : '/subscription'}
+              className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs"
+            >
+              {!currentUser ? 'Go to Login' : 'View Subscription Status'}
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Top Bar */}
       <div className="md:hidden flex items-center justify-between px-4 h-14 bg-white border-b border-slate-200 sticky top-0 z-40 select-none">
         <Link href="/" className="flex items-center gap-2.5">

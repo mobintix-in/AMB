@@ -16,6 +16,15 @@ export interface SupabasePackageDto {
   features: string[];
 }
 
+function isExpiryDatePast(expiresAt: string): boolean {
+  const clean = (expiresAt || '').trim();
+  if (!clean || clean === '—' || clean.toLowerCase() === 'lifetime') return false;
+  const parsed = new Date(clean);
+  if (isNaN(parsed.getTime())) return false;
+  parsed.setHours(23, 59, 59, 999);
+  return parsed.getTime() < Date.now();
+}
+
 export function mapUserMetadataToSubscription(
   meta: Record<string, any> | undefined,
   packages: SupabasePackageDto[] = []
@@ -26,14 +35,44 @@ export function mapUserMetadataToSubscription(
     ? meta.expires_at.trim()
     : '2028-10-29';
 
-  if (rawStatus === 'No plan' || (!rawPlan && rawStatus !== 'Active')) {
+  const dateExpired = rawPlan ? isExpiryDatePast(expiresAt) : false;
+
+  if (rawStatus === 'No plan' || rawStatus === 'Expired' || (!rawPlan && rawStatus !== 'Active') || dateExpired) {
+    const upperExpiredPlan = rawPlan.toUpperCase();
+    let expiredTier: SubscriptionTier = 'STARTER';
+    if (upperExpiredPlan.includes('ENT')) expiredTier = 'ENTERPRISE';
+    else if (upperExpiredPlan.includes('PRO')) expiredTier = 'PROFESSIONAL';
+
     return {
-      tier: 'STARTER',
-      planName: 'No Plan (Inactive)',
+      tier: expiredTier,
+      planName: dateExpired && rawPlan ? `${rawPlan} (Expired)` : 'No Plan (Inactive)',
       priceMonthly: 0,
       status: 'EXPIRED',
-      validUntil: '—',
-      licenseKey: 'NONE',
+      validUntil: dateExpired ? expiresAt : '—',
+      licenseKey: meta?.utr_ref ? String(meta.utr_ref) : 'NONE',
+      isPaid: false,
+    };
+  }
+
+  if (rawStatus === 'Pending') {
+    const upperPendingPlan = rawPlan.toUpperCase();
+    let pendingTier: SubscriptionTier = 'STARTER';
+    if (upperPendingPlan.includes('ENT')) pendingTier = 'ENTERPRISE';
+    else if (upperPendingPlan.includes('PRO')) pendingTier = 'PROFESSIONAL';
+
+    const matchedPendingPkg = packages.find(
+      (p) =>
+        p.name.toLowerCase() === rawPlan.toLowerCase() ||
+        p.code.toLowerCase() === rawPlan.toLowerCase()
+    );
+
+    return {
+      tier: pendingTier,
+      planName: matchedPendingPkg?.name || rawPlan || 'Pending Approval',
+      priceMonthly: matchedPendingPkg?.monthlyPrice ?? 0,
+      status: 'TRIAL',
+      validUntil: 'Pending Admin Verification',
+      licenseKey: meta?.utr_ref ? String(meta.utr_ref) : 'PENDING',
       isPaid: false,
     };
   }
@@ -54,7 +93,7 @@ export function mapUserMetadataToSubscription(
 
   return {
     tier,
-    planName: matchedPkg?.name || rawPlan || 'Starter Retail',
+    planName: matchedPkg?.name || rawPlan || packages[0]?.name || 'AMB MedERP',
     priceMonthly: matchedPkg?.monthlyPrice ?? (tier === 'ENTERPRISE' ? 3999 : tier === 'PROFESSIONAL' ? 1999 : 999),
     status: rawStatus === 'Pending' ? 'TRIAL' : 'ACTIVE',
     validUntil: expiresAt,
@@ -352,7 +391,7 @@ export async function fetchPackagesFromSupabase(): Promise<SupabasePackageDto[]>
       code: p.code,
       description: p.description || '',
       monthlyPrice: Number(p.monthly_price ?? p.monthlyPrice ?? 999),
-      yearlyPrice: Number(p.yearly_price ?? p.yearlyPrice ?? 9999),
+      yearlyPrice: Number(p.yearly_price ?? p.yearlyPrice ?? 3999),
       interval: p.interval || 'Yearly',
       terminals: p.terminals || '1 Counter Terminal',
       status: p.status || 'Active',
@@ -361,6 +400,99 @@ export async function fetchPackagesFromSupabase(): Promise<SupabasePackageDto[]>
     }));
   } catch {
     return [];
+  }
+}
+
+export async function fetchMerchantPaymentConfig(): Promise<{ upiId: string; payeeName: string }> {
+  const fallbackUpi = (process.env.NEXT_PUBLIC_MERCHANT_UPI_ID || '9409862204@kotakbank').trim();
+  const fallbackName = (process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Mobintix Infotech').trim();
+  const client = getSupabaseAdmin();
+  if (!client) return { upiId: fallbackUpi, payeeName: fallbackName };
+
+  try {
+    const { data } = await client.auth.admin.listUsers();
+    const users = data?.users || [];
+    const configured = users.find((u) => u.user_metadata?.merchant_upi_id);
+    if (configured) {
+      return {
+        upiId: String(configured.user_metadata.merchant_upi_id).trim() || fallbackUpi,
+        payeeName: String(configured.user_metadata.merchant_payee_name || fallbackName).trim(),
+      };
+    }
+  } catch {
+    // Fallback cleanly
+  }
+  return { upiId: fallbackUpi, payeeName: fallbackName };
+}
+
+export async function submitUpiPaymentForVerification(params: {
+  userId?: string;
+  email?: string;
+  plan: string;
+  plan_duration: string;
+  amount: number;
+  utr_ref?: string;
+  utr_note?: string;
+}): Promise<{ ok: boolean; subscription?: SubscriptionInfo; message: string }> {
+  const client = getSupabaseAdmin();
+  if (!client) {
+    return { ok: false, message: 'Supabase Admin is not configured.' };
+  }
+
+  const cleanUtr =
+    (params.utr_ref || '').trim() || `UPI-REQ-${Date.now().toString().slice(-6)}`;
+
+  try {
+    const packages = await fetchPackagesFromSupabase();
+    let targetUser: any = null;
+
+    if (params.userId) {
+      const { data } = await client.auth.admin.getUserById(params.userId);
+      targetUser = data?.user || null;
+    }
+
+    if (!targetUser) {
+      const { data: userList } = await client.auth.admin.listUsers();
+      const users = userList?.users || [];
+      if (params.email) {
+        targetUser = users.find((u) => u.email?.toLowerCase() === params.email!.toLowerCase()) || null;
+      }
+      if (!targetUser && users.length === 1) {
+        targetUser = users[0];
+      }
+    }
+
+    if (!targetUser) {
+      return { ok: false, message: 'User account not found in Supabase Auth.' };
+    }
+
+    const currentMeta = targetUser.user_metadata || {};
+    const updatedMeta = {
+      ...currentMeta,
+      plan: params.plan,
+      status: 'Pending',
+      plan_duration: params.plan_duration || '1 month',
+      utr_ref: cleanUtr,
+      utr_note: params.utr_note?.trim() || `UPI ₹${params.amount} (${params.plan_duration}) • Verified OK, Awaiting Admin`,
+      expires_at: null,
+    };
+
+    const { error } = await client.auth.admin.updateUserById(targetUser.id, {
+      user_metadata: updatedMeta,
+    });
+
+    if (error) {
+      return { ok: false, message: error.message };
+    }
+
+    return {
+      ok: true,
+      subscription: mapUserMetadataToSubscription(updatedMeta, packages),
+      message: 'Verified OK! Payment request submitted for manual verification in Admin Panel.',
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, message: msg };
   }
 }
 
@@ -734,7 +866,7 @@ export async function adminRegisterUser(data: {
   drugLicenseNo: string;
   gstin?: string;
   role?: UserRole;
-}): Promise<{ success: boolean; user?: UserProfile; tenant?: Tenant; error?: string }> {
+}): Promise<{ success: boolean; user?: UserProfile; tenant?: Tenant; subscription?: SubscriptionInfo; error?: string }> {
   const client = getSupabaseAdmin();
   if (!client) {
     return { success: false, error: 'Enterprise cloud service is unavailable.' };
@@ -745,7 +877,7 @@ export async function adminRegisterUser(data: {
     return { success: false, error: 'Please provide a valid 10-digit mobile number.' };
   }
 
-  const email = data.email?.trim() || `${cleanPhone}@amb-med.in`;
+  const email = (data.email?.trim() || `${cleanPhone}@amb-med.in`).toLowerCase();
   const password = normalizeAuthPassword(data.password);
 
   const metadata = {
@@ -755,59 +887,46 @@ export async function adminRegisterUser(data: {
     drug_license_no: data.drugLicenseNo.trim(),
     gstin: data.gstin?.trim() || '',
     role: data.role || 'ADMIN',
+    status: 'No plan',
+    plan: null,
   };
 
   try {
-    // 1. Create or update user in Supabase Auth
-    let authUser: { id: string; email?: string } | null = null;
-
-    // Check if user already exists
+    // 1. Check if user already exists in Supabase Auth
     const { data: userList } = await client.auth.admin.listUsers();
     const existing = userList?.users.find(
       (u) =>
-        u.email === email ||
+        u.email?.toLowerCase() === email ||
         (u.user_metadata?.phone && u.user_metadata.phone.slice(-10) === cleanPhone)
     );
 
     if (existing) {
-      // Preserve commercial subscription fields when updating existing user
-      const prevMeta = existing.user_metadata || {};
-      const mergedMeta = {
-        ...prevMeta,
-        ...metadata,
+      return {
+        success: false,
+        error: 'An account with this email or mobile number is already registered. Please sign in instead.',
       };
-      const { data: updated, error: uErr } = await client.auth.admin.updateUserById(existing.id, {
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: mergedMeta,
-      });
-      if (uErr) {
-        return { success: false, error: uErr.message };
-      }
-      authUser = updated.user;
-    } else {
-      // Create new confirmed user
-      const { data: created, error: cErr } = await client.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: metadata,
-      });
-      if (cErr) {
-        return { success: false, error: cErr.message };
-      }
-      authUser = created.user;
     }
 
-    // 2. Upsert Tenant in Supabase
-    const tenantId = toUuid(`tenant-${cleanPhone}`);
+    // Create new confirmed user with No plan (admin assigns package in Admin Console)
+    const { data: created, error: cErr } = await client.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: metadata,
+    });
+    if (cErr || !created.user) {
+      return { success: false, error: cErr?.message || 'Failed to create user in Supabase Auth.' };
+    }
+    const authUser = created.user;
+
+    // 2. Upsert isolated Tenant keyed by Auth user id
+    const tenantId = toUuid(`tenant-${authUser.id}`);
     const newTenant: Tenant = {
       id: tenantId,
       name: data.storeName.trim(),
       trade_name: data.storeName.trim(),
       branch_name: 'Main Pharmacy Branch',
-      gstin: data.gstin?.trim() || '',
+      gstin: data.gstin?.trim().toUpperCase() || '',
       drug_license_no: data.drugLicenseNo.trim(),
       phone: cleanPhone,
       email,
@@ -833,18 +952,21 @@ export async function adminRegisterUser(data: {
     });
 
     const profile: UserProfile = {
-      id: authUser?.id || `usr-${cleanPhone}`,
+      id: authUser.id,
+      email,
       phone: cleanPhone,
       name: data.name.trim(),
       role: data.role || 'ADMIN',
       store_name: data.storeName.trim(),
       drug_license_no: data.drugLicenseNo.trim(),
-      gstin: data.gstin?.trim() || '',
+      gstin: data.gstin?.trim().toUpperCase() || '',
       is_verified: true,
-      created_at: new Date().toISOString(),
+      created_at: authUser.created_at || new Date().toISOString(),
     };
 
-    return { success: true, user: profile, tenant: newTenant };
+    const subscription = mapUserMetadataToSubscription(metadata, []);
+
+    return { success: true, user: profile, tenant: newTenant, subscription };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, error: `Registration error: ${msg}` };

@@ -71,6 +71,7 @@ export function useERPStore() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [subscription, setSubscriptionState] = useState<SubscriptionInfo>(defaultSubscription);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [cloudSynced, setCloudSynced] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [dateRef, setDateRef] = useState({ year: 2026, month: 11 });
 
@@ -151,7 +152,7 @@ export function useERPStore() {
               setCurrentUser(json.data.user);
               setStored(STORAGE_KEYS.CURRENT_USER, json.data.user);
             }
-            if (json.data.subscription) {
+              if (json.data.subscription) {
               setSubscriptionState(json.data.subscription);
               setStored(STORAGE_KEYS.SUBSCRIPTION, json.data.subscription);
             }
@@ -159,6 +160,9 @@ export function useERPStore() {
         })
         .catch((e) => {
           console.warn('Initial Enterprise Cloud sync skipped:', e);
+        })
+        .finally(() => {
+          setCloudSynced(true);
         });
 
       const handleFocusSync = () => {
@@ -276,13 +280,15 @@ export function useERPStore() {
   const syncWithSupabase = useCallback(async () => {
     setIsSyncing(true);
     try {
+      const latestUser = currentUser || getStored<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, null);
+      const latestTenant = tenant?.id && tenant.id !== initialTenant.id ? tenant : getStored<Tenant>(STORAGE_KEYS.TENANT, initialTenant);
       const res = await fetch('/api/cloud/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: currentUser?.id,
-          email: currentUser?.email,
-          tenantId: tenant?.id,
+          userId: latestUser?.id,
+          email: latestUser?.email,
+          tenantId: latestTenant?.id,
         }),
       });
       const json = await res.json();
@@ -692,6 +698,19 @@ export function useERPStore() {
 
       setCurrentUser(registeredUser);
       setStored(STORAGE_KEYS.CURRENT_USER, registeredUser);
+
+      const nextSub: SubscriptionInfo = json.subscription || {
+        tier: 'STARTER',
+        planName: 'No Plan (Inactive)',
+        priceMonthly: 0,
+        status: 'EXPIRED',
+        validUntil: '—',
+        licenseKey: 'NONE',
+        isPaid: false,
+      };
+      setSubscriptionState(nextSub);
+      setStored(STORAGE_KEYS.SUBSCRIPTION, nextSub);
+      setCloudSynced(true);
       sounds.playSave();
 
       // Clear local demo operational arrays so a new store starts cleanly instead of pushing mock data
@@ -713,8 +732,20 @@ export function useERPStore() {
 
   const logout = useCallback(() => {
     setCurrentUser(null);
+    setSubscriptionState(defaultSubscription);
+    setTenant(initialTenant);
+    setParties([]);
+    setItems([]);
+    setBatches([]);
+    setInvoices([]);
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      localStorage.removeItem(STORAGE_KEYS.SUBSCRIPTION);
+      localStorage.removeItem(STORAGE_KEYS.TENANT);
+      localStorage.removeItem(STORAGE_KEYS.PARTIES);
+      localStorage.removeItem(STORAGE_KEYS.ITEMS);
+      localStorage.removeItem(STORAGE_KEYS.BATCHES);
+      localStorage.removeItem(STORAGE_KEYS.INVOICES);
     }
     const client = getSupabase();
     if (client) {
@@ -976,6 +1007,7 @@ export function useERPStore() {
     currentUser,
     subscription,
     isLoaded,
+    cloudSynced,
     isSyncing,
     searchItems,
     findSubstitutes,
