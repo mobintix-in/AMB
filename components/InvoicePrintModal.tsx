@@ -123,7 +123,7 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
         className={
           isPrintPortal
             ? 'w-full bg-white text-slate-900 p-[10mm] text-xs font-sans'
-            : 'w-full max-w-[210mm] bg-white text-slate-900 p-6 sm:p-8 rounded-xl shadow-md border border-slate-200 text-xs font-sans'
+            : 'w-full max-w-[210mm] h-fit bg-white text-slate-900 p-6 sm:p-8 rounded-xl shadow-md border border-slate-200 text-xs font-sans'
         }
       >
         {/* Header: Pharmacy Brand & Invoice Meta */}
@@ -343,9 +343,9 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
         </div>
 
         {/* Bottom: Terms, QR Code, Bank Details & Signature */}
-        <div className="mt-5 pt-4 border-t border-slate-200 grid grid-cols-12 gap-4 items-end text-xs">
-          <div className="col-span-5 flex items-start gap-2.5 min-w-0">
-            <div className="p-1 bg-white border border-slate-300 rounded-lg shadow-2xs flex flex-col items-center flex-shrink-0">
+        <div className="mt-5 pt-4 border-t border-slate-200 grid grid-cols-12 gap-4 items-start text-xs">
+          <div className="col-span-5 flex items-start gap-3 min-w-0">
+            <div className="p-1.5 bg-white border border-slate-300 rounded-lg shadow-2xs flex flex-col items-center flex-shrink-0">
               {qrDataUrl ? (
                 <img src={qrDataUrl} alt="UPI Payment QR" className="w-16 h-16 block" />
               ) : (
@@ -354,11 +354,11 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
               <span className="text-[7px] font-bold text-sky-700 font-mono mt-0.5">BHIM UPI SCAN</span>
             </div>
             <div className="text-[10px] text-slate-500 space-y-0.5 min-w-0">
-              <div className="font-bold text-slate-700">Scan &amp; Pay Directly</div>
+              <div className="font-bold text-slate-800">Scan &amp; Pay Directly</div>
               <div>Accepts GPay, PhonePe, Paytm</div>
-              <div className="font-mono text-[9px] text-slate-600 break-all">UPI: {upiId}</div>
+              <div className="font-mono text-[9px] text-slate-700 break-all">UPI: {upiId}</div>
               {hasBankDetails && (
-                <div className="pt-1 text-[9px] text-slate-600 space-y-0.5 border-t border-slate-200 mt-1">
+                <div className="pt-1.5 text-[9px] text-slate-600 space-y-0.5 border-t border-slate-200 mt-1.5">
                   {tenant.bank_name && <div><strong>Bank:</strong> {tenant.bank_name}</div>}
                   {tenant.bank_account_name && <div><strong>A/c Name:</strong> {tenant.bank_account_name}</div>}
                   {tenant.bank_account_no && <div className="font-mono"><strong>A/c:</strong> {tenant.bank_account_no}</div>}
@@ -369,20 +369,22 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
           </div>
 
           <div className="col-span-4 text-[9px] text-slate-500 space-y-0.5 min-w-0">
-            <div className="font-bold text-slate-700">Terms &amp; Conditions:</div>
+            <div className="font-bold text-slate-800 text-[10px] mb-1">Terms &amp; Conditions:</div>
             {termsToShow.map((line, i) => (
               <div key={i} className="leading-snug">{line}</div>
             ))}
             {tenant.invoice_notes && (
-              <div className="pt-1 text-slate-600 italic leading-snug">Note: {tenant.invoice_notes}</div>
+              <div className="pt-1.5 text-slate-600 italic leading-snug">Note: {tenant.invoice_notes}</div>
             )}
           </div>
 
-          <div className="col-span-3 text-right flex flex-col items-end min-w-0">
-            <div className="font-bold text-slate-800 text-xs">{tenant.name}</div>
-            <div className="h-10 border-b border-dashed border-slate-300 w-full max-w-[150px] mt-1" />
-            <div className="text-[9px] text-slate-500 mt-1 font-medium leading-tight">
-              Authorised Signatory / Pharmacist
+          <div className="col-span-3 text-right flex flex-col items-end justify-between self-stretch min-w-0">
+            <div className="font-bold text-slate-800 text-xs">For {tenant.name}</div>
+            <div className="w-full max-w-[155px] pt-8">
+              <div className="border-b border-dashed border-slate-300 w-full" />
+              <div className="text-[9px] text-slate-500 mt-1 font-medium leading-tight">
+                Authorised Signatory / Pharmacist
+              </div>
             </div>
           </div>
         </div>
@@ -393,7 +395,7 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
         className={
           isPrintPortal
             ? 'w-[76mm] mx-auto bg-white text-slate-900 p-[3mm] text-[11px] font-mono leading-tight break-inside-avoid'
-            : 'w-[80mm] max-w-[80mm] bg-white text-slate-900 p-3 sm:p-4 rounded-xl shadow-md border border-slate-200 text-[11px] font-mono leading-tight'
+            : 'w-[80mm] max-w-[80mm] h-fit bg-white text-slate-900 p-3 sm:p-4 rounded-xl shadow-md border border-slate-200 text-[11px] font-mono leading-tight'
         }
       >
         <div className="text-center pb-2 border-b border-dashed border-slate-400 space-y-0.5">
@@ -486,20 +488,25 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
           </div>
         </div>
 
-        <div className="text-center pt-2.5 text-[9px] text-slate-500 space-y-1">
+        <div className="text-center pt-3 text-[9px] text-slate-500 space-y-1">
           {qrDataUrl && (
             <div className="flex flex-col items-center pb-1">
-              <img src={qrDataUrl} alt="UPI QR" className="w-16 h-16 block" />
+              <div className="text-[8px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                Scan &amp; Pay via UPI
+              </div>
+              <div className="p-1 bg-white border border-slate-200 rounded">
+                <img src={qrDataUrl} alt="UPI QR" className="w-20 h-20 block" />
+              </div>
             </div>
           )}
-          {tenant.upi_id && (
-            <div className="font-mono text-slate-700">UPI: <strong>{tenant.upi_id}</strong></div>
-          )}
-          <div className="font-bold text-slate-700">
+          <div className="font-mono text-slate-700 break-all">
+            UPI: <strong>{upiId}</strong>
+          </div>
+          <div className="font-bold text-slate-700 pt-0.5 leading-snug">
             {tenant.invoice_notes ? tenant.invoice_notes : '*** GET WELL SOON ***'}
           </div>
           <div>Keep Medicines Away From Children</div>
-          <div className="text-[8px] text-slate-400 font-sans mt-1">Computer Generated POS Invoice</div>
+          <div className="text-[8px] text-slate-400 font-sans pt-1">Computer Generated POS Invoice</div>
         </div>
       </div>
     )
@@ -562,7 +569,7 @@ export function InvoicePrintModal({ invoice, tenant, onClose }: InvoicePrintModa
           </div>
 
           {/* Printable Preview Container */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100/70 flex justify-center">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/70 flex justify-center items-start">
             {renderPrintableContent(false)}
           </div>
         </div>
